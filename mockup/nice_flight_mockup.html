@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nice Flight! mockup</title>
+<style>
+  :root{ --ink:#141416; --mute:#6e6e74; --line:#c3c3c8; --paper:#f6f6f8; --white:#fff;
+         --good:#238c4b; --goodBg:#d7f0de; --bad:#be372d; --badBg:#fadeda; --accentBg:#dbe8f8;
+         --amber:#c3870f; --amberBg:#fbeccb; --grey:#cdcdd2; --greyBg:#f0f0f2; }
+  html,body{ margin:0; padding:0; background:var(--paper); color:var(--ink); font-family:-apple-system,"Helvetica Neue",Arial,sans-serif; }
+  body{ padding:32px 16px 80px; }
+  h1{ font-size:22px; margin:0 0 4px; }
+  .sub{ color:var(--mute); font-size:13px; margin:0 0 28px; max-width:720px; line-height:1.45; }
+  h2{ font-size:16px; margin:40px 0 6px; }
+  .note{ font-size:13px; color:var(--mute); max-width:720px; margin:0 0 12px; line-height:1.45; }
+  .rig{ display:flex; flex-direction:column; gap:10px; margin-bottom:8px; }
+  .screen{ width:640px; height:360px; background:var(--white); border:1px solid #bcbcbc; position:relative; overflow:hidden; box-sizing:border-box; }
+  .keys{ position:absolute; top:0; left:0; right:0; height:34px; display:flex; }
+  .keys div{ flex:1; border-bottom:2px solid var(--ink); border-right:1px solid var(--line); font-size:15px; font-weight:700; letter-spacing:.03em; display:flex; align-items:center; justify-content:center; }
+  .keys div:last-child{ border-right:0; }
+  .keys div.empty{ color:var(--line); font-weight:400; }
+  .abs{ position:absolute; }
+  .lbl{ font-size:15px; color:var(--mute); text-transform:uppercase; letter-spacing:.06em; }
+  .big{ font-size:26px; font-weight:700; }
+  .hero{ font-size:92px; font-weight:800; letter-spacing:-.02em; line-height:1; font-variant-numeric:tabular-nums; }
+  .xl{ font-size:52px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
+  .unit{ font-size:22px; font-weight:600; color:var(--mute); }
+  .unit.h{ font-size:34px; }
+  .rx{ font-size:20px; font-weight:700; }
+  .foot{ position:absolute; left:22px; top:290px; font-size:19px; color:var(--mute); }
+  .foot2{ position:absolute; left:22px; top:280px; font-size:17px; line-height:1.45; color:var(--mute); }
+  .foot2 b{ color:var(--ink); font-weight:800; }
+  .foot b{ color:var(--ink); font-weight:800; }
+  .status{ position:absolute; left:14px; right:14px; bottom:8px; font-size:15px; color:var(--mute); }
+  .alertrow{ position:absolute; right:22px; top:272px; display:flex; flex-direction:column; align-items:flex-end; gap:3px; }
+  .alert{ display:inline-flex; align-items:center; gap:14px; background:var(--ink); color:#fff;
+    border:3px solid var(--ink); border-radius:16px; padding:6px 20px 6px 12px; font-size:30px; font-weight:800; white-space:nowrap; }
+  .alert .ic{ font-size:36px; line-height:1; }
+  .alert.rec{ background:var(--amberBg); color:var(--ink); border-color:var(--amber); }
+  .alertlbl{ font-size:13px; color:var(--mute); text-transform:uppercase; letter-spacing:.08em; }
+  .badge{ display:inline-flex; align-items:center; gap:7px; border:2px solid var(--ink); border-radius:10px; padding:4px 10px 4px 8px; font-size:16px; font-weight:700; margin:0 8px 6px 0; background:#fff; white-space:nowrap; }
+  .badge .ic{ font-size:22px; line-height:1; }
+  .badge .n{ font-variant-numeric:tabular-nums; }
+  .badge.grey{ border-color:var(--grey); color:#9a9aa0; background:var(--greyBg); }
+  .badge.grey .ic{ filter:grayscale(1) opacity(.45); }
+  .badge.rec{ border-color:var(--amber); background:var(--amberBg); }
+  .badge.sel{ background:var(--ink); color:#fff; }
+  table.list{ position:absolute; left:14px; right:14px; border-collapse:collapse; font-size:16px; }
+  table.list th{ text-align:left; color:var(--mute); font-size:12px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; padding:0 5px 4px; border-bottom:1px solid var(--line); }
+  table.list td{ padding:5px 5px; border-bottom:1px solid #ececec; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  table.list tr.sel td{ background:var(--ink); color:#fff; }
+  /* badges screen (approved in badges_screen.html) */
+  .grid{ position:absolute; left:14px; right:14px; top:42px; display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+  .cell{ border:2px solid var(--ink); border-radius:10px; padding:4px 9px 4px; font-size:13.5px; line-height:1.2; }
+  .cell .t{ display:flex; align-items:center; gap:4px; white-space:nowrap; font-size:12.5px; }
+  .cell .t .ic{ font-size:18px; }
+  .cell .n{ font-size:19px; font-weight:800; margin:1px 0 0; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .cell .n span{ font-weight:400; font-size:13px; }
+  .cell .s{ font-size:12.5px; color:var(--mute); white-space:nowrap; }
+  .cell.sel{ background:var(--ink); color:#fff; }
+  .cell.sel .s{ color:#cfcfd4; }
+  .def{ position:absolute; left:14px; right:14px; top:204px; font-size:14px; line-height:1.32; }
+  .ladder{ position:absolute; left:14px; right:14px; top:270px; display:flex; align-items:center; gap:4px; }
+  .ladder .lbl{ font-size:11px; margin-right:1px; }
+  .chip{ border:2px solid var(--ink); border-radius:8px; padding:3px 5px; font-size:13.5px; font-weight:800; background:#fff; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .chip.grey{ border-color:var(--grey); color:#a5a5ab; background:var(--greyBg); }
+  .chip.tally{ margin-left:auto; background:var(--ink); color:#fff; font-weight:700; }
+  .chip.tally b{ font-size:15px; }
+  .cfg{ position:absolute; left:14px; right:14px; font-size:19px; }
+  .cfg div{ display:flex; justify-content:space-between; padding:6px 6px; border-bottom:1px solid #ececec; }
+  .cfg div.sel{ background:var(--ink); color:#fff; }
+  .cfg span:last-child{ font-weight:700; font-variant-numeric:tabular-nums; }
+  .edge{ max-width:760px; font-size:14px; line-height:1.5; }
+  .edge li{ margin:0 0 10px; }
+  .tag{ display:inline-block; font-size:11px; font-weight:700; padding:1px 6px; border-radius:4px; margin-right:6px; text-transform:uppercase; letter-spacing:.05em; }
+  .tag.dec{ background:#dcefe2; color:#1f6b38; }
+  .tag.ask{ background:#fbe9c9; color:#7a5200; }
+  .tag.new{ background:#dbe8f8; color:#1d4f8c; }
+  .gal{ display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:900px; }
+  .gcard{ background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 14px; font-size:13px; line-height:1.45; }
+  .gcard .row{ display:flex; flex-wrap:wrap; align-items:center; margin:6px 0 8px; }
+  svg text{ font-family:inherit; }
+</style>
+</head>
+<body>
+
+<h1>Nice Flight! — screen mockup, draft 3</h1>
+<p class="sub">X14 full-screen widget canvas (640×360), FS1–FS4 labels pinned to the top row as in Throw Trainer. X20-class radios get the same layout scaled from measured text height plus tap on the key labels. Badge icons are emoji stand-ins for shipped PNG icons (Ethos fonts have no emoji). Draft 3, 2026-09-16: your draft 2 annotations plus every decision from the badges walk in badges_screen.html.</p>
+
+<!-- ============================================================ LIVE -->
+<h2>1 · Live — in flight</h2>
+<p class="note">Timer and max side by side, equal weight. Current altitude and launch height underneath. Bottom left: time above launch and climbs over the climb size, stacked, values in bold. Bottom right is reserved for the badge pill. No climb bar (the vario already does that) and no status text in flight. Keys inert.</p>
+<div class="rig">
+<div class="screen">
+  <div class="keys"><div class="empty">—</div><div class="empty">—</div><div class="empty">—</div><div class="empty">—</div></div>
+  <div class="abs rx" style="right:22px;top:44px">RX 3.74V</div>
+  <div class="abs lbl" style="left:22px;top:48px">Flight</div>
+  <div class="abs hero" style="left:18px;top:66px">4:37</div>
+  <div class="abs lbl" style="left:330px;top:48px">Max</div>
+  <div class="abs hero" style="left:326px;top:66px">588<span class="unit h"> ft</span></div>
+  <div class="abs lbl" style="left:22px;top:196px">Now</div>
+  <div class="abs xl" style="left:22px;top:214px">412<span class="unit"> ft</span></div>
+  <div class="abs lbl" style="left:330px;top:196px">Launch</div>
+  <div class="abs xl" style="left:330px;top:214px">171<span class="unit"> ft</span></div>
+  <div class="foot2">Time above launch <b>3:10</b><br>Climbs over 50 ft: <b>2</b></div>
+</div>
+<div class="screen">
+  <div class="keys"><div class="empty">—</div><div class="empty">—</div><div class="empty">—</div><div class="empty">—</div></div>
+  <div class="abs rx" style="right:22px;top:44px">RX 3.74V</div>
+  <div class="abs lbl" style="left:22px;top:48px">Flight</div>
+  <div class="abs hero" style="left:18px;top:66px">7:12</div>
+  <div class="abs lbl" style="left:330px;top:48px">Max</div>
+  <div class="abs hero" style="left:326px;top:66px">812<span class="unit h"> ft</span></div>
+  <div class="abs lbl" style="left:22px;top:196px">Now</div>
+  <div class="abs xl" style="left:22px;top:214px">812<span class="unit"> ft</span></div>
+  <div class="abs lbl" style="left:330px;top:196px">Launch</div>
+  <div class="abs xl" style="left:330px;top:214px">171<span class="unit"> ft</span></div>
+  <div class="foot2">Time above launch <b>5:40</b><br>Climbs over 50 ft: <b>3</b></div>
+  <div class="alertrow"><div class="alertlbl">Badge earned</div><div class="alert"><span class="ic">🏔️</span>Peak 800 ft</div></div>
+</div>
+<div class="screen" style="height:120px">
+  <div class="alertrow" style="top:18px"><div class="alertlbl">Badge earned</div><div class="alert rec"><span class="ic">🏆</span>New record 1340 ft</div></div>
+</div>
+</div>
+<p class="note"><b>Mid-flight badge alert.</b> The moment a badge is earned in the air (Peak or Duration crossing a rung, a record falling, a yo-yo, rebound or save completing) the radio vibrates and a large dark pill appears at bottom right, the same pill as the highlighted badge on the recap, sized for reading at arm's length, with "Badge earned" right-aligned in small type directly above it, in the right column under Launch, so it costs no vertical space on the left. The second frame is the record variant in gold. It stays for the rest of the flight; a later badge replaces it, so the pill always shows the latest one earned. The stacked lines at bottom left stay put. Vibration only, no sound, so it never talks over the vario. CFG Alerts = Off silences this too, pill included. Hat trick cannot be earned in the air; it waits for the recap.</p>
+
+<!-- ============================================================ RECAP -->
+<h2>2 · Recap — after a nice flight</h2>
+<p class="note">Shown when a flight beating 300 ft OR 5:00 (CFG) lands; stays until DISMISS or the next launch. Header: model and date, no time of day. Curve is the simplified trace with green pills on highs and red on lows. Every badge the flight earned is listed with the wording settled on the badges screen; the rotary highlights one and the caption line under them explains it. Sample flight: 171 ft launch, save from 55, climbs to 402, 588 and 560, 11:42.</p>
+<div class="rig">
+<div class="screen">
+  <div class="keys"><div>DISMISS</div><div>HISTORY</div><div>BADGES</div><div>CFG</div></div>
+  <div class="abs" style="left:22px;top:40px;font-size:28px;font-weight:800">Nice Flight!</div>
+  <div class="abs" style="right:22px;top:48px;font-size:14px;color:var(--mute)">Bull Nose · 9/16/26</div>
+  <div class="abs lbl" style="left:22px;top:80px">Launch</div>
+  <div class="abs big" style="left:22px;top:97px">171 ft</div>
+  <div class="abs lbl" style="left:130px;top:80px">Max</div>
+  <div class="abs big" style="left:130px;top:97px">588 ft</div>
+  <div class="abs lbl" style="left:22px;top:134px">Time</div>
+  <div class="abs big" style="left:22px;top:151px">11:42</div>
+  <div class="abs lbl" style="left:130px;top:134px">Above launch</div>
+  <div class="abs big" style="left:130px;top:151px">9:50</div>
+  <div class="abs lbl" style="left:22px;top:188px">Climbs</div>
+  <div class="abs big" style="left:22px;top:205px">3</div>
+  <div class="abs lbl" style="left:130px;top:188px">Best climb</div>
+  <div class="abs big" style="left:130px;top:205px">388 ft</div>
+  <svg class="abs" style="left:250px;top:76px" width="376" height="170" viewBox="0 0 376 170">
+    <line x1="34" y1="10" x2="34" y2="144" stroke="#c3c3c8"/>
+    <line x1="34" y1="144" x2="368" y2="144" stroke="#c3c3c8"/>
+    <text x="30" y="14" font-size="11" fill="#6e6e74" text-anchor="end">588</text>
+    <text x="30" y="148" font-size="11" fill="#6e6e74" text-anchor="end">0</text>
+    <text x="34" y="164" font-size="11" fill="#6e6e74">0:00</text>
+    <text x="368" y="164" font-size="11" fill="#6e6e74" text-anchor="end">11:42</text>
+    <path d="M34.0,144.0 C35.0,137.5 30.6,107.1 39.7,105.0 C48.8,102.9 68.4,140.2 88.7,131.5 C109.0,122.7 140.5,57.9 161.5,52.4 C182.5,46.9 196.4,105.5 214.8,98.4 C233.2,91.4 255.2,15.7 271.9,10.0 C288.5,4.3 302.0,63.2 314.7,64.2 C327.4,65.3 339.1,3.1 348.0,16.4 C356.9,29.7 364.7,122.7 368.0,144.0 L368.0,144.0 L34.0,144.0 Z" fill="#dbe8f8" opacity=".7"/>
+    <path d="M34.0,144.0 C35.0,137.5 30.6,107.1 39.7,105.0 C48.8,102.9 68.4,140.2 88.7,131.5 C109.0,122.7 140.5,57.9 161.5,52.4 C182.5,46.9 196.4,105.5 214.8,98.4 C233.2,91.4 255.2,15.7 271.9,10.0 C288.5,4.3 302.0,63.2 314.7,64.2 C327.4,65.3 339.1,3.1 348.0,16.4 C356.9,29.7 364.7,122.7 368.0,144.0" fill="none" stroke="#141416" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="39.7" cy="105.0" r="4" fill="#141416"/>
+    <rect x="22.2" y="82.0" width="31" height="16" rx="5" fill="#d7f0de"/>
+    <text x="37.7" y="94.0" font-size="11" font-weight="700" text-anchor="middle" fill="#238c4b">171</text>
+    <circle cx="88.7" cy="131.5" r="4" fill="#141416"/>
+    <rect x="80.7" y="138.5" width="24" height="16" rx="5" fill="#fadeda"/>
+    <text x="92.7" y="150.5" font-size="11" font-weight="700" text-anchor="middle" fill="#be372d">55</text>
+    <circle cx="161.5" cy="52.4" r="4" fill="#141416"/>
+    <rect x="138.0" y="29.4" width="31" height="16" rx="5" fill="#d7f0de"/>
+    <text x="153.5" y="41.4" font-size="11" font-weight="700" text-anchor="middle" fill="#238c4b">402</text>
+    <circle cx="214.8" cy="98.4" r="4" fill="#141416"/>
+    <rect x="205.3" y="107.4" width="31" height="16" rx="5" fill="#fadeda"/>
+    <text x="220.8" y="119.4" font-size="11" font-weight="700" text-anchor="middle" fill="#be372d">200</text>
+    <circle cx="271.9" cy="10.0" r="4" fill="#141416"/>
+    <rect x="226.4" y="-1.0" width="31" height="16" rx="5" fill="#d7f0de"/>
+    <text x="241.9" y="11.0" font-size="11" font-weight="700" text-anchor="middle" fill="#238c4b">588</text>
+    <circle cx="314.7" cy="64.2" r="4" fill="#141416"/>
+    <rect x="309.2" y="71.2" width="31" height="16" rx="5" fill="#fadeda"/>
+    <text x="324.7" y="83.2" font-size="11" font-weight="700" text-anchor="middle" fill="#be372d">350</text>
+    <circle cx="348.0" cy="16.4" r="4" fill="#141416"/>
+    <rect x="308.5" y="1.4" width="31" height="16" rx="5" fill="#d7f0de"/>
+    <text x="324.0" y="13.4" font-size="11" font-weight="700" text-anchor="middle" fill="#238c4b">560</text>
+  </svg>
+  <div class="abs lbl" style="left:22px;top:246px;font-size:13px">Badges earned on this flight</div>
+  <div class="abs" style="left:22px;top:264px;right:14px;display:flex;flex-wrap:wrap">
+    <span class="badge sel"><span class="ic">⏱️</span><span class="n">10</span> min</span>
+    <span class="badge"><span class="ic">🪀</span><span class="n">3× 200 ft</span></span>
+    <span class="badge"><span class="ic">🛟</span>Save from <span class="n">55 ft</span></span>
+  </div>
+  <div class="status" style="bottom:6px">10 min: first flight of 10 minutes or more</div>
+</div>
+</div>
+<p class="note">This flight earns no Peak or Record badge because the sample pilot already holds the 400, 600 and 800 firsts and a 1340 ft record. A record flight adds a gold badge: <span class="badge rec" style="font-size:14px"><span class="ic" style="font-size:18px">🏆</span>New record <span class="n">1340 ft</span></span></p>
+
+<!-- ============================================================ IDLE -->
+<h2>3 · Idle — between flights</h2>
+<p class="note">Same layout as Live: last flight's time and max, launch and today's nice-flight tally beneath, labelled so it reads as 2 nice flights of 9 throws. Shows the last throw honestly, even a fumble. Status text lives here only. Before the first throw of the day: dashes and 0 / 0.</p>
+<div class="rig">
+<div class="screen">
+  <div class="keys"><div class="empty">—</div><div>HISTORY</div><div>BADGES</div><div>CFG</div></div>
+  <div class="abs rx" style="right:22px;top:44px">RX 3.71V</div>
+  <div class="abs lbl" style="left:22px;top:48px">Last flight</div>
+  <div class="abs hero" style="left:18px;top:66px">0:48</div>
+  <div class="abs lbl" style="left:330px;top:48px">Max</div>
+  <div class="abs hero" style="left:326px;top:66px">183<span class="unit h"> ft</span></div>
+  <div class="abs lbl" style="left:22px;top:196px">Launch</div>
+  <div class="abs xl" style="left:22px;top:214px">168<span class="unit"> ft</span></div>
+  <div class="abs lbl" style="left:330px;top:196px">Nice flights today</div>
+  <div class="abs xl" style="left:330px;top:214px">2<span class="unit"> of 9 throws</span></div>
+  <div class="foot" style="font-size:17px">Best today <b>588 ft</b> · <b>11:42</b></div>
+  <div class="status">Bull Nose · ready</div>
+</div>
+</div>
+
+<!-- ============================================================ HISTORY -->
+<h2>4 · History — every recap you've earned</h2>
+<p class="note">Nice flights only, newest first, all planes. Model name on the right, truncated to fit; heights carry their unit. Date only, no time. OPEN shows that flight's recap with BACK in place of DISMISS. Pages of 8. Badges as icons; the recap has the detail.</p>
+<div class="rig">
+<div class="screen">
+  <div class="keys"><div>BACK</div><div>OPEN</div><div>▲</div><div>▼</div></div>
+  <table class="list" style="top:44px;width:612px">
+    <tr><th>Date</th><th>Launch</th><th>Max</th><th>Flight</th><th>Badges</th><th>Model</th></tr>
+    <tr class="sel"><td>9/16/26</td><td>171 ft</td><td>588 ft</td><td>11:42</td><td>⏱️🪀🛟</td><td>Bull Nose</td></tr>
+    <tr><td>9/16/26</td><td>165 ft</td><td>341 ft</td><td>5:20</td><td>⏱️</td><td>Bull Nose</td></tr>
+    <tr><td>9/13/26</td><td>172 ft</td><td>1340 ft</td><td>16:05</td><td>🏔️⏱️🪀🏆🏆</td><td>Whip Tail</td></tr>
+    <tr><td>9/13/26</td><td>168 ft</td><td>420 ft</td><td>7:31</td><td>⏱️</td><td>Whip Tail</td></tr>
+    <tr><td>9/11/26</td><td>160 ft</td><td>318 ft</td><td>4:02</td><td></td><td>Super Gee…</td></tr>
+    <tr><td>9/11/26</td><td>174 ft</td><td>655 ft</td><td>9:15</td><td>🏔️⏱️🛟</td><td>Super Gee…</td></tr>
+    <tr><td>9/9/26</td><td>170 ft</td><td>506 ft</td><td>12:44</td><td>🏔️⏱️🪀🏆</td><td>Bull Nose</td></tr>
+    <tr><td>9/9/26</td><td>166 ft</td><td>330 ft</td><td>3:58</td><td></td><td>Bull Nose</td></tr>
+  </table>
+  <div class="status">1–8 of 23</div>
+</div>
+</div>
+
+<!-- ============================================================ BADGES -->
+<h2>5 · Badges — as approved in the walk</h2>
+<p class="note">The structure settled in badges_screen.html: family tiles (bold = highest first earned, or the count for Hat trick and the record for Record; small line = the tally or the rule), definition under the grid, then the family's row: firsts ladder with units, a rolling window for open-ended ladders, earned dates for Hat trick, dated history with a diagonal slash on beaten records for Record. Bottom line: the best and where it came from. Peak shown; the other seven are in badges_screen.html.</p>
+<div class="rig">
+<div class="screen">
+  <div class="keys"><div>BACK</div><div class="empty">—</div><div>▲</div><div>▼</div></div>
+  <div class="grid">
+    <div class="cell sel"><div class="t"><span class="ic">🏔️</span>Peak</div><div class="n">1250 ft</div><div class="s">1000 ft+ peaks ×4</div></div>
+    <div class="cell"><div class="t"><span class="ic">⏱️</span>Duration</div><div class="n">15 min</div><div class="s">15 min+ flights ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🪀</span>Yo-yo</div><div class="n">3× 300 ft <span>climbs</span></div><div class="s">300 ft+ yo-yos ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏀</span>Rebound</div><div class="n">500 ft <span>from 125</span></div><div class="s">500 ft+ rebounds ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🛟</span>Save from &lt;60 ft</div><div class="n">60 ft <span>to 300</span></div><div class="s">saves ×3</div></div>
+    <div class="cell"><div class="t"><span class="ic">🎩</span>Hat trick</div><div class="n">2 hat tricks</div><div class="s">5 nice flights in a day</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏆</span>Record height</div><div class="n">1340 ft</div><div class="s">beaten ×4</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏆</span>Record time</div><div class="n">16:05</div><div class="s">beaten ×2</div></div>
+  </div>
+  <div class="def"><b>Peak</b> — the highest altitude in a flight. Firsts at 400, 600, 800, 1000, 1250, 1500 and 2000 ft. Every flight over 1000 ft earns one, numbered to the hundred below its max.</div>
+  <div class="ladder">
+    <span class="lbl">Firsts</span>
+    <span class="chip">400 ft</span><span class="chip">600 ft</span><span class="chip">800 ft</span><span class="chip">1000 ft</span><span class="chip">1250 ft</span>
+    <span class="chip grey">1500 ft</span><span class="chip grey">2000 ft</span>
+    <span class="chip tally">1000 ft+ <b>×4</b></span>
+  </div>
+  <div class="status">Best <b>1340 ft</b> · 9/13/26 · Whip Tail</div>
+</div>
+</div>
+
+<!-- ============================================================ CFG -->
+<h2>6 · CFG</h2>
+<p class="note">Same editor pattern as Throw Trainer's CFG. Units are the widget's own setting; stored values are always ft, and Units = m switches every ladder to a round metric ladder. The climb bar is gone, so its setting is gone. One Alerts toggle covers everything: the landing sound and vibration, and the mid-flight badge vibration and pill. Off means silent and no pill; badges are still recorded and shown on the recap. Record floors (400 ft, 10 min) and the save rule (under 60 ft, climb out to 300) are fixed, not settings.</p>
+<div class="rig">
+<div class="screen">
+  <div class="keys"><div>BACK</div><div>EDIT</div><div>▲</div><div>▼</div></div>
+  <div class="cfg" style="top:44px">
+    <div class="sel"><span>Nice flight: height</span><span>300 ft</span></div>
+    <div><span>Nice flight: time</span><span>5:00</span></div>
+    <div><span>Climb size (count + graph)</span><span>50 ft</span></div>
+    <div><span>Alerts (sound + vibration)</span><span>On</span></div>
+    <div><span>Units</span><span>ft</span></div>
+    <div><span>RX voltage source</span><span>ADC2</span></div>
+    <div><span>Landing needs altitude under</span><span>50 ft</span></div>
+    <div><span>About</span><span>Nice Flight! 0.1</span></div>
+  </div>
+  <div class="status">a flight is nice when it beats EITHER value</div>
+</div>
+</div>
+
+<!-- ============================================================ GALLERY -->
+<h2>7 · Badge gallery — final wording on the recap</h2>
+<p class="note">Each card: the badge as it appears on the recap, and the caption line that appears under it when highlighted. Definitions are the ones on the badges screen.</p>
+<div class="gal">
+  <div class="gcard"><div class="row"><span class="badge"><span class="ic">🏔️</span>Peak <span class="n">400 ft</span></span><span class="badge"><span class="ic">🏔️</span>Peak <span class="n">1300 ft</span></span></div>
+    <b>Peak.</b> Caption: "Peak 400 ft: first flight over 400 ft" or "Peak 1300 ft: your 4th flight over 1000 ft". A first flight of 800 earns 400, 600 and 800 together.</div>
+  <div class="gcard"><div class="row"><span class="badge"><span class="ic">⏱️</span><span class="n">10</span> min</span><span class="badge"><span class="ic">⏱️</span><span class="n">16</span> min</span></div>
+    <b>Duration.</b> Caption: "10 min: first flight of 10 minutes or more" or "16 min: your 2nd flight over 15 minutes".</div>
+  <div class="gcard"><div class="row"><span class="badge"><span class="ic">🪀</span><span class="n">3× 200 ft</span></span><span class="badge"><span class="ic">🪀</span><span class="n">3× 400 ft</span></span></div>
+    <b>Yo-yo.</b> Caption: "Yo-yo: three climbs of 200 ft or more". Per-flight from 300 ft.</div>
+  <div class="gcard"><div class="row"><span class="badge"><span class="ic">🏀</span>Rebound <span class="n">500 ft</span></span></div>
+    <b>Rebound.</b> Caption: "Rebound: 520 ft down to 118, back up to 560". Firsts from 300, per-flight from 500.</div>
+  <div class="gcard"><div class="row"><span class="badge"><span class="ic">🛟</span>Save from <span class="n">55 ft</span></span></div>
+    <b>Save from &lt;60 ft.</b> Caption: "Save: down to 55 ft, back up to 412". Earns the 60 ft rung.</div>
+  <div class="gcard"><div class="row"><span class="badge"><span class="ic">🎩</span>Hat trick</span><span class="badge"><span class="ic">🎩</span>Hat trick <span class="n">×2</span></span></div>
+    <b>Hat trick.</b> Caption: "Hat trick: 5 nice flights today" or "Hat trick ×2: 10 nice flights today".</div>
+  <div class="gcard"><div class="row"><span class="badge rec"><span class="ic">🏆</span>New record <span class="n">1340 ft</span></span><span class="badge rec"><span class="ic">🏆</span>New record <span class="n">16:05</span></span></div>
+    <b>Record.</b> Caption: "New record: 1340 ft, previous 1120 on 8/30/26". Floors 400 ft and 10 min; the first flight over a floor is a record.</div>
+</div>
+
+<!-- ============================================================ EDGE CASES -->
+<h2>8 · Edge-case pass</h2>
+<p class="note">Decided means I'll build it that way unless you object. Ask means I need your call.</p>
+<ol class="edge">
+  <li><span class="tag dec">decided</span><b>Relaunch while the recap is up.</b> The launch closes the recap and starts Live; the recap is saved and reachable in History.</li>
+  <li><span class="tag new">new</span><b>Brake in the air ends the flight (Poker's known gap).</b> SF11 zeroes Altitude at launch, so landing is accepted only under CFG "Landing needs altitude under" (default 50 ft). If telemetry is lost, the brake alone is trusted.</li>
+  <li><span class="tag dec">decided</span><b>Landed without braking.</b> The next MOM_LAUNCH release closes the previous flight; duration is the last sample above 20 ft.</li>
+  <li><span class="tag dec">decided</span><b>Telemetry lost mid-flight.</b> Timer keeps running, samples are skipped, the graph draws straight across the gap. The live screen shows dashes for Now and Max until the link returns.</li>
+  <li><span class="tag dec">decided</span><b>Power-cycle or model switch mid-flight.</b> The flight is dropped, nothing written.</li>
+  <li><span class="tag dec">decided</span><b>Qualification is judged at landing.</b> The recap never appears while airborne.</li>
+  <li><span class="tag dec">decided</span><b>Records start at a floor</b>, 400 ft and 10 minutes, so the first flight over the floor is a record and earns a badge. Replaces the earlier "first nice flight sets the record silently" rule.</li>
+  <li><span class="tag dec">decided</span><b>Hat trick counting.</b> On the recap of the 5th, 10th, 15th nice flight of the day, by the radio's local date.</li>
+  <li><span class="tag dec">decided</span><b>Memory on long flights.</b> 1 Hz samples capped at 60 min plus a running turning-point tracker.</li>
+  <li><span class="tag dec">decided</span><b>Storage.</b> <code>Files/flights.csv</code> one row per throw, <code>Files/badges.csv</code> one row per family (firsts, tally, best, history), <code>Files/config.csv</code> as in Throw Trainer. Everything in badges.csv is recomputable from flights.csv.</li>
+  <li><span class="tag dec">decided</span><b>Metric ladders.</b> Separate round ladders when Units = m.</li>
+  <li><span class="tag dec">decided</span><b>Idle shows the last throw honestly</b>, fumble or not.</li>
+  <li><span class="tag dec">decided</span><b>Graph points.</b> Start, landing, and up to six reversals of at least the climb size; the smallest reversals are dropped first.</li>
+  <li><span class="tag dec">decided</span><b>Where Nice Flight! lives on the radio.</b> Its own main-screen page, reached with the page key; Throw Trainer keeps its page. Detection and logging run whether or not the page is showing.</li>
+  <li><span class="tag dec">decided</span><b>Mid-flight badges make the flight nice.</b> Any badge earned in the air (a 3× 100 ft yo-yo under 300 ft is the one case that can happen on an otherwise ordinary flight) marks the flight as nice, so it gets the recap and appears in History. A badge without a recap would be lost.</li>
+  <li><span class="tag dec">decided</span><b>Mid-flight badge alert timing.</b> Peak and Record height fire when the max first crosses the line; Duration and Record time when the timer does; yo-yo, rebound and save the moment their last condition is met. A power-cycle after an alert but before landing still drops the flight, badge included, per case 5.</li>
+  <li><span class="tag dec">decided</span><b>Nice flight alert.</b> A couple of seconds after a nice flight lands, the radio plays an audible alert and vibrates, so you know a recap is waiting even with another page up. CFG "Alerts" turns this and the mid-flight badge alert off together. Ordinary flights stay silent.</li>
+</ol>
+
+</body>
+</html>

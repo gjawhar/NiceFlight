@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nice Flight! — Badges screen walk</title>
+<style>
+  :root{ --ink:#141416; --mute:#6e6e74; --line:#c3c3c8; --paper:#f6f6f8; --grey:#cdcdd2; --greyBg:#f0f0f2; --amber:#c3870f; --amberBg:#fbeccb; }
+  html,body{ margin:0; padding:0; background:var(--paper); color:var(--ink); font-family:-apple-system,"Helvetica Neue",Arial,sans-serif; }
+  body{ padding:32px 16px 60px; }
+  h1{ font-size:20px; margin:0 0 4px; }
+  .note{ font-size:13px; color:var(--mute); max-width:640px; margin:0 0 14px; line-height:1.45; }
+  .screen{ width:640px; height:360px; background:#fff; border:1px solid #bcbcbc; position:relative; overflow:hidden; box-sizing:border-box; margin-bottom:18px; }
+  .keys{ position:absolute; top:0; left:0; right:0; height:34px; display:flex; }
+  .keys div{ flex:1; border-bottom:2px solid var(--ink); border-right:1px solid var(--line); font-size:15px; font-weight:700; letter-spacing:.03em; display:flex; align-items:center; justify-content:center; }
+  .keys div:last-child{ border-right:0; }
+  .keys div.empty{ color:var(--line); font-weight:400; }
+  .abs{ position:absolute; }
+  .grid{ position:absolute; left:14px; right:14px; top:42px; display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+  .cell{ border:2px solid var(--ink); border-radius:10px; padding:4px 9px 4px; font-size:13.5px; line-height:1.2; }
+  .cell .t{ display:flex; align-items:center; gap:4px; }
+  .cell .t .ic{ font-size:18px; }
+  .cell .n{ font-size:19px; font-weight:800; margin:1px 0 0; font-variant-numeric:tabular-nums; }
+  .cell .s{ font-size:12.5px; color:var(--mute); }
+  .cell.sel{ background:var(--ink); color:#fff; }
+  .cell.sel .s{ color:#cfcfd4; }
+  .cell.grey{ border-color:var(--grey); color:#9a9aa0; background:var(--greyBg); }
+  .cell.grey .ic{ filter:grayscale(1) opacity(.45); }
+  .cell.grey .s{ color:#9a9aa0; }
+  .def{ position:absolute; left:14px; right:14px; top:204px; font-size:14px; line-height:1.32; }
+  .def b{ font-weight:800; }
+  .ladder{ position:absolute; left:14px; right:14px; top:270px; display:flex; align-items:center; gap:4px; }
+  .ladder .lbl{ font-size:11px; color:var(--mute); text-transform:uppercase; letter-spacing:.05em; margin-right:1px; }
+  .chip{ border:2px solid var(--ink); border-radius:8px; padding:3px 5px; font-size:13.5px; font-weight:800; background:#fff; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .chip.grey{ border-color:var(--grey); color:#a5a5ab; background:var(--greyBg); }
+  .chip.tally{ margin-left:auto; border-color:var(--ink); background:var(--ink); color:#fff; font-weight:700; font-size:13.5px; }
+  .chip.tally b{ font-size:15px; }
+  .chip.hist{ display:inline-flex; flex-direction:column; align-items:center; line-height:1.1; padding:3px 7px; }
+  .chip.hist small{ font-size:10.5px; font-weight:600; color:var(--mute); margin-top:1px; }
+  .chip.beaten{ position:relative; }
+  .chip.beaten::after{ content:""; position:absolute; inset:-2px; border-radius:8px; pointer-events:none;
+    background:linear-gradient(to top right, transparent calc(50% - 0.8px), #8a8a90 calc(50% - 0.8px), #8a8a90 calc(50% + 0.8px), transparent calc(50% + 0.8px)); }
+  .status{ position:absolute; left:14px; right:14px; bottom:8px; font-size:14px; color:var(--mute); }
+  .status b{ color:var(--ink); font-weight:700; }
+</style>
+</head>
+<body>
+<h1>Badges screen — Peak highlighted</h1>
+<p class="note">X14 canvas 640×360. Top: one cell per family, ▲▼ move the highlight. Middle: the highlighted family's definition. Below it, its ladder: firsts earned in ink, unearned greyed, and the running tally of per-flight badges as a dark chip at the right. Bottom line: where the best came from. Sample data: firsts through 1250 earned, four flights over 1000, best 1340 ft. The cell shows the highest FIRST earned (1250), so it matches the ladder; the exact best lives on the bottom line and in Record height.</p>
+
+<div class="screen">
+  <div class="keys"><div>BACK</div><div class="empty">—</div><div>▲</div><div>▼</div></div>
+
+  <div class="grid">
+    <div class="cell sel"><div class="t"><span class="ic">🏔️</span>Peak</div><div class="n">1250 ft</div><div class="s">1000 ft+ peaks ×4</div></div>
+    <div class="cell"><div class="t"><span class="ic">⏱️</span>Duration</div><div class="n">15 min</div><div class="s">15 min+ flights ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🪀</span>Yo-yo</div><div class="n" style="white-space:nowrap">3× 300 ft <span style="font-weight:400;font-size:13px">climbs</span></div><div class="s">300 ft+ yo-yos ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏀</span>Rebound</div><div class="n" style="white-space:nowrap">500 ft <span style="font-weight:400;font-size:13px">from 125</span></div><div class="s">500 ft+ rebounds ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🛟</span>Save from &lt;60 ft</div><div class="n" style="white-space:nowrap">60 ft <span style="font-weight:400;font-size:13px">to 300</span></div><div class="s">saves ×3</div></div>
+    <div class="cell"><div class="t"><span class="ic">🎩</span>Hat trick</div><div class="n" style="white-space:nowrap">2 hat tricks</div><div class="s" style="white-space:nowrap">5 nice flights in a day</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏆</span>Record height</div><div class="n">1340 ft</div><div class="s">beaten ×4</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏆</span>Record time</div><div class="n">16:05</div><div class="s">beaten ×2</div></div>
+  </div>
+
+  <div class="def"><b>Peak</b> — the highest altitude in a flight. Firsts at 400, 600, 800, 1000, 1250, 1500 and 2000 ft. Every flight over 1000 ft earns one, numbered to the hundred below its max.</div>
+
+  <div class="ladder">
+    <span class="lbl">Firsts</span>
+    <span class="chip">400 ft</span><span class="chip">600 ft</span><span class="chip">800 ft</span><span class="chip">1000 ft</span><span class="chip">1250 ft</span>
+    <span class="chip grey">1500 ft</span><span class="chip grey">2000 ft</span>
+    <span class="chip tally">1000 ft+ <b>×4</b></span>
+  </div>
+
+  <div class="status">Best <b>1340 ft</b> · 9/13/26 · Whip Tail</div>
+</div>
+
+<p class="note">Reading it: the cell says your best and how many big ones you've had. The ladder says which firsts are still out there (1500 and 2000 greyed). The dark chip is the count of per-flight Peak badges, the same number as the cell's third line, placed on the ladder so it reads as "beyond the firsts, you keep collecting these."</p>
+
+<h1 style="margin-top:28px">Badges screen — Duration highlighted</h1>
+<p class="note">Same structure. Cell shows the highest first earned (15 min) and the tally of 15+ flights. Ladder in minutes, 20 through 60 still greyed. Sample: firsts 5, 10, 15 earned, one flight of 15+, best 16:05.</p>
+<div class="screen">
+  <div class="keys"><div>BACK</div><div class="empty">—</div><div>▲</div><div>▼</div></div>
+  <div class="grid">
+    <div class="cell"><div class="t"><span class="ic">🏔️</span>Peak</div><div class="n">1250 ft</div><div class="s">1000 ft+ peaks ×4</div></div>
+    <div class="cell sel"><div class="t"><span class="ic">⏱️</span>Duration</div><div class="n">15 min</div><div class="s">15 min+ flights ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🪀</span>Yo-yo</div><div class="n" style="white-space:nowrap">3× 300 ft <span style="font-weight:400;font-size:13px">climbs</span></div><div class="s">300 ft+ yo-yos ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏀</span>Rebound</div><div class="n" style="white-space:nowrap">500 ft <span style="font-weight:400;font-size:13px">from 125</span></div><div class="s">500 ft+ rebounds ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🛟</span>Save from &lt;60 ft</div><div class="n" style="white-space:nowrap">60 ft <span style="font-weight:400;font-size:13px">to 300</span></div><div class="s">saves ×3</div></div>
+    <div class="cell"><div class="t"><span class="ic">🎩</span>Hat trick</div><div class="n" style="white-space:nowrap">2 hat tricks</div><div class="s" style="white-space:nowrap">5 nice flights in a day</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏆</span>Record height</div><div class="n">1340 ft</div><div class="s">beaten ×4</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏆</span>Record time</div><div class="n">16:05</div><div class="s">beaten ×2</div></div>
+  </div>
+  <div class="def"><b>Duration</b> — minutes airborne. Firsts at 5, 10, 15, 20, 30, 45 and 60 min. Every flight of 15 min or more earns one, numbered in whole minutes.</div>
+  <div class="ladder">
+    <span class="lbl">Firsts</span>
+    <span class="chip">5 min</span><span class="chip">10 min</span><span class="chip">15 min</span>
+    <span class="chip grey">20 min</span><span class="chip grey">30 min</span><span class="chip grey">45 min</span><span class="chip grey">60 min</span>
+    <span class="chip tally">15 min+ <b>×1</b></span>
+  </div>
+  <div class="status">Best <b>16:05</b> · 9/13/26 · Whip Tail</div>
+</div>
+
+<h1 style="margin-top:28px">Badges screen — Yo-yo highlighted</h1>
+<p class="note">Same structure. A 300 ft yo-yo is three separate climbs of 300 ft or more in one flight. Cell reads "3× 300 ft climbs" so it explains itself. Firsts per 100 ft band; per-flight badge at 300 ft and up. Sample: best yo-yo flight had climbs of 412, 388 and 347 ft, so Yo-yo 300; firsts 100, 200, 300 earned; one flight at 300+.</p>
+<div class="screen">
+  <div class="keys"><div>BACK</div><div class="empty">—</div><div>▲</div><div>▼</div></div>
+  <div class="grid">
+    <div class="cell"><div class="t"><span class="ic">🏔️</span>Peak</div><div class="n">1250 ft</div><div class="s">1000 ft+ peaks ×4</div></div>
+    <div class="cell"><div class="t"><span class="ic">⏱️</span>Duration</div><div class="n">15 min</div><div class="s">15 min+ flights ×1</div></div>
+    <div class="cell sel"><div class="t"><span class="ic">🪀</span>Yo-yo</div><div class="n" style="white-space:nowrap">3× 300 ft <span style="font-weight:400;font-size:13px">climbs</span></div><div class="s">300 ft+ yo-yos ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏀</span>Rebound</div><div class="n" style="white-space:nowrap">500 ft <span style="font-weight:400;font-size:13px">from 125</span></div><div class="s">500 ft+ rebounds ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🛟</span>Save from &lt;60 ft</div><div class="n" style="white-space:nowrap">60 ft <span style="font-weight:400;font-size:13px">to 300</span></div><div class="s">saves ×3</div></div>
+    <div class="cell"><div class="t"><span class="ic">🎩</span>Hat trick</div><div class="n" style="white-space:nowrap">2 hat tricks</div><div class="s" style="white-space:nowrap">5 nice flights in a day</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏆</span>Record height</div><div class="n">1340 ft</div><div class="s">beaten ×4</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏆</span>Record time</div><div class="n">16:05</div><div class="s">beaten ×2</div></div>
+  </div>
+  <div class="def"><b>Yo-yo</b> — three separate climbs of 300 ft or more in one flight. Sinking to 150 ft then climbing to 450 ft is one 300 ft climb. Firsts per 100 ft; every flight with a 300 ft yo-yo or better earns one.</div>
+  <div class="ladder">
+    <span class="lbl">Firsts</span>
+    <span class="chip">100 ft</span><span class="chip">200 ft</span><span class="chip">300 ft</span>
+    <span class="chip grey">400 ft</span><span class="chip grey">500 ft</span><span class="chip grey">600 ft</span>
+    <span class="chip tally">300 ft+ <b>×1</b></span>
+  </div>
+  <div class="status">Best <b>347 ft</b> (climbs 412 · 388 · 347) · 9/13/26 · Whip Tail</div>
+</div>
+<p class="note">Notes for the walk: the Yo-yo ladder has no natural top, so the screen shows the earned firsts plus the next three unearned. Earn 400 and the row shifts to show 500, 600, 700. The bottom line lists the three climbs that made the best, which is the only place the raw numbers appear. The green-ball icon is this Mac's old font rendering of the yo-yo emoji; the shipped PNG is a proper yo-yo.</p>
+
+<h1 style="margin-top:28px">Badges screen — Rebound highlighted</h1>
+<p class="note">Same structure. A Rebound is losing three quarters of your height and climbing back over where you were; the number is the height you got back to, to the hundred. Tile reads "500 ft from 125" so the shape is visible without the definition. Firsts per 100 ft from 300; per-flight badge for every rebound of 500 ft or more. Sample: best rebound was 520 → 118 → 560 (Rebound 500); firsts 300, 400, 500 earned; one rebound at 500+.</p>
+<div class="screen">
+  <div class="keys"><div>BACK</div><div class="empty">—</div><div>▲</div><div>▼</div></div>
+  <div class="grid">
+    <div class="cell"><div class="t"><span class="ic">🏔️</span>Peak</div><div class="n">1250 ft</div><div class="s">1000 ft+ peaks ×4</div></div>
+    <div class="cell"><div class="t"><span class="ic">⏱️</span>Duration</div><div class="n">15 min</div><div class="s">15 min+ flights ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🪀</span>Yo-yo</div><div class="n" style="white-space:nowrap">3× 300 ft <span style="font-weight:400;font-size:13px">climbs</span></div><div class="s">300 ft+ yo-yos ×1</div></div>
+    <div class="cell sel"><div class="t"><span class="ic">🏀</span>Rebound</div><div class="n" style="white-space:nowrap">500 ft <span style="font-weight:400;font-size:13px">from 125</span></div><div class="s">500 ft+ rebounds ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🛟</span>Save from &lt;60 ft</div><div class="n" style="white-space:nowrap">60 ft <span style="font-weight:400;font-size:13px">to 300</span></div><div class="s">saves ×3</div></div>
+    <div class="cell"><div class="t"><span class="ic">🎩</span>Hat trick</div><div class="n" style="white-space:nowrap">2 hat tricks</div><div class="s" style="white-space:nowrap">5 nice flights in a day</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏆</span>Record height</div><div class="n">1340 ft</div><div class="s">beaten ×4</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏆</span>Record time</div><div class="n">16:05</div><div class="s">beaten ×2</div></div>
+  </div>
+  <div class="def"><b>Rebound</b> — lose three quarters of your height, then climb back over where you were. 500 ft down to 125 and back above 500 is a 500 ft rebound. Firsts per 100 ft from 300; every rebound of 500 ft or more earns one.</div>
+  <div class="ladder">
+    <span class="lbl">Firsts</span>
+    <span class="chip">300 ft</span><span class="chip">400 ft</span><span class="chip">500 ft</span>
+    <span class="chip grey">600 ft</span><span class="chip grey">700 ft</span><span class="chip grey">800 ft</span>
+    <span class="chip tally">500 ft+ <b>×1</b></span>
+  </div>
+  <div class="status">Best <b>520 ft → 118 ft → 560 ft</b> · 9/11/26 · Bull Nose</div>
+</div>
+<p class="note">Same rolling ladder as Yo-yo: earned firsts plus the next three. The bottom line shows the three altitudes that made the best, high, low, and the recovery, which is the whole story of a rebound in three numbers.</p>
+
+<h1 style="margin-top:28px">Badges screen — Save from &lt;60 ft highlighted</h1>
+<p class="note">The save family is named "Save from <100 ft" so the tile says where you saved it from, not where you saved it to. It has no height ladder, so its firsts go the other way: how low you got before saving it, in 10 ft steps from 100 down to 20. Tile reads "60 ft to 400": the badge rounds up to the 10 ft rung (a 55 ft save is the 60 ft badge), and the exact 55 lives on the bottom line, the same split as Peak's 1250 tile and 1340 best. Rolling ladder like Yo-yo: earned firsts plus the next three. Sample: three saves, the best from 55 ft, so under 100 through under 60 are earned.</p>
+<div class="screen">
+  <div class="keys"><div>BACK</div><div class="empty">—</div><div>▲</div><div>▼</div></div>
+  <div class="grid">
+    <div class="cell"><div class="t"><span class="ic">🏔️</span>Peak</div><div class="n">1250 ft</div><div class="s">1000 ft+ peaks ×4</div></div>
+    <div class="cell"><div class="t"><span class="ic">⏱️</span>Duration</div><div class="n">15 min</div><div class="s">15 min+ flights ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🪀</span>Yo-yo</div><div class="n" style="white-space:nowrap">3× 300 ft <span style="font-weight:400;font-size:13px">climbs</span></div><div class="s">300 ft+ yo-yos ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏀</span>Rebound</div><div class="n" style="white-space:nowrap">500 ft <span style="font-weight:400;font-size:13px">from 125</span></div><div class="s">500 ft+ rebounds ×1</div></div>
+    <div class="cell sel"><div class="t"><span class="ic">🛟</span>Save from &lt;60 ft</div><div class="n" style="white-space:nowrap">60 ft <span style="font-weight:400;font-size:13px">to 300</span></div><div class="s">saves ×3</div></div>
+    <div class="cell"><div class="t"><span class="ic">🎩</span>Hat trick</div><div class="n" style="white-space:nowrap">2 hat tricks</div><div class="s" style="white-space:nowrap">5 nice flights in a day</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏆</span>Record height</div><div class="n">1340 ft</div><div class="s">beaten ×4</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏆</span>Record time</div><div class="n">16:05</div><div class="s">beaten ×2</div></div>
+  </div>
+  <div class="def"><b>Save from under 60 ft</b> — get under 60 ft, then climb out to 300. Badges count in 10 ft steps, lower is better: a save from 55 ft is a 60 ft save. Firsts every 10 ft down from 60; every save earns one.</div>
+  <div class="ladder">
+    <span class="lbl">Firsts</span>
+    <span class="chip">&lt;60 ft</span>
+    <span class="chip grey">&lt;50 ft</span><span class="chip grey">&lt;40 ft</span><span class="chip grey">&lt;30 ft</span><span class="chip grey">&lt;20 ft</span>
+    <span class="chip tally">saves <b>×3</b></span>
+  </div>
+  <div class="status">Best <b>55 ft → 412 ft</b> · 9/9/26 · Bull Nose</div>
+</div>
+<p class="note">Nine rungs, 100 down to 20 in tens; the row shows earned plus the next three, so it never needs more than eight chips. Under 20 ft is the one nobody expects to earn. The 400 ft "saved" altitude and the 100 ft floor are fixed, as you set them, and the family name carries the floor so "low" never needs defining; "from" makes clear the 100 ft is the start of the save, not the end.</p>
+
+<h1 style="margin-top:28px">Badges screen — Hat trick highlighted</h1>
+<p class="note">Hat trick is five nice flights in one day, and ten is two. No firsts: it is just a count, so the row lists the days you earned one, newest first, with the tally at the right. Tile: the bold line is your lifetime count, "2 hat tricks", and the line under it states the rule, "5 nice flights in a day". Sample: two hat tricks so far, best day 9/13/26.</p>
+<div class="screen">
+  <div class="keys"><div>BACK</div><div class="empty">—</div><div>▲</div><div>▼</div></div>
+  <div class="grid">
+    <div class="cell"><div class="t"><span class="ic">🏔️</span>Peak</div><div class="n">1250 ft</div><div class="s">1000 ft+ peaks ×4</div></div>
+    <div class="cell"><div class="t"><span class="ic">⏱️</span>Duration</div><div class="n">15 min</div><div class="s">15 min+ flights ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🪀</span>Yo-yo</div><div class="n" style="white-space:nowrap">3× 300 ft <span style="font-weight:400;font-size:13px">climbs</span></div><div class="s">300 ft+ yo-yos ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏀</span>Rebound</div><div class="n" style="white-space:nowrap">500 ft <span style="font-weight:400;font-size:13px">from 125</span></div><div class="s">500 ft+ rebounds ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🛟</span>Save from &lt;60 ft</div><div class="n" style="white-space:nowrap">60 ft <span style="font-weight:400;font-size:13px">to 300</span></div><div class="s">saves ×3</div></div>
+    <div class="cell sel"><div class="t"><span class="ic">🎩</span>Hat trick</div><div class="n" style="white-space:nowrap">2 hat tricks</div><div class="s" style="white-space:nowrap">5 nice flights in a day</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏆</span>Record height</div><div class="n">1340 ft</div><div class="s">beaten ×4</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏆</span>Record time</div><div class="n">16:05</div><div class="s">beaten ×2</div></div>
+  </div>
+  <div class="def"><b>Hat trick</b> — five nice flights in one day. A flight is nice when it beats the height or time set in CFG, currently 300 ft or 5:00. Ten in a day is two hat tricks, fifteen is three.</div>
+  <div class="ladder">
+    <span class="lbl">Earned</span>
+    <span class="chip">9/13/26</span><span class="chip">9/9/26</span>
+    <span class="chip tally">hat tricks <b>×2</b></span>
+  </div>
+  <div class="status">Best <b>5 nice flights</b> of 11 throws · 9/13/26 · Whip Tail</div>
+</div>
+<p class="note">The tile's bold line is the count you've earned and the small line is the rule. The row shows the most recent days; a day with two hat tricks shows as "9/13/26 ×2". The definition quotes the live CFG values, so it stays true after you raise the bar. On the recap the caption reads "Hat trick: 5 nice flights today", and a 10th nice flight that day reads "Hat trick ×2: 10 nice flights today". The best line adds the day's throw count so the rate is visible: 5 of 11.</p>
+
+<h1 style="margin-top:28px">Badges screen — Record height highlighted</h1>
+<p class="note">"PB" is gone; the family is called Record. Tile: bold is the record itself, small line is how many times you've beaten it, which is the number of Record badges you hold. The row is the record's history, newest first, each with its date; beaten records get one diagonal slash corner to corner, which marks them without covering the digits, and the standing one is plain. Records start at a floor, 400 ft and 10 minutes, so the first flight over the floor is itself a record and earns a badge. Sample: the height record has fallen four times since the floor.</p>
+<div class="screen">
+  <div class="keys"><div>BACK</div><div class="empty">—</div><div>▲</div><div>▼</div></div>
+  <div class="grid">
+    <div class="cell"><div class="t"><span class="ic">🏔️</span>Peak</div><div class="n">1250 ft</div><div class="s">1000 ft+ peaks ×4</div></div>
+    <div class="cell"><div class="t"><span class="ic">⏱️</span>Duration</div><div class="n">15 min</div><div class="s">15 min+ flights ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🪀</span>Yo-yo</div><div class="n" style="white-space:nowrap">3× 300 ft <span style="font-weight:400;font-size:13px">climbs</span></div><div class="s">300 ft+ yo-yos ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏀</span>Rebound</div><div class="n" style="white-space:nowrap">500 ft <span style="font-weight:400;font-size:13px">from 125</span></div><div class="s">500 ft+ rebounds ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🛟</span>Save from &lt;60 ft</div><div class="n" style="white-space:nowrap">60 ft <span style="font-weight:400;font-size:13px">to 300</span></div><div class="s">saves ×3</div></div>
+    <div class="cell"><div class="t"><span class="ic">🎩</span>Hat trick</div><div class="n" style="white-space:nowrap">2 hat tricks</div><div class="s" style="white-space:nowrap">5 nice flights in a day</div></div>
+    <div class="cell sel"><div class="t"><span class="ic">🏆</span>Record height</div><div class="n">1340 ft</div><div class="s">beaten ×4</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏆</span>Record time</div><div class="n">16:05</div><div class="s">beaten ×2</div></div>
+  </div>
+  <div class="def"><b>Record height</b> — the highest you have ever flown, starting from a 400 ft floor. Every flight that beats the record earns one, showing the new record.</div>
+  <div class="ladder">
+    <span class="lbl">History</span>
+    <span class="chip hist">1340 ft<small>9/13/26</small></span>
+    <span class="chip hist beaten">1120 ft<small>8/30/26</small></span>
+    <span class="chip hist beaten">902 ft<small>8/16/26</small></span>
+    <span class="chip hist beaten">588 ft<small>7/19/26</small></span>
+    <span class="chip hist beaten">400 ft<small>floor</small></span>
+    <span class="chip tally">records <b>×4</b></span>
+  </div>
+  <div class="status">Set <b>1340 ft</b> · 9/13/26 · Whip Tail · previous 1120 ft on 8/30/26</div>
+</div>
+<p class="note">The last chip is the floor, slashed like any beaten record, so the row shows where the ladder started. The row keeps the newest five; older ones stay in the CSV. Record time is identical in shape.</p>
+
+<h1 style="margin-top:28px">Badges screen — Record time highlighted</h1>
+<div class="screen">
+  <div class="keys"><div>BACK</div><div class="empty">—</div><div>▲</div><div>▼</div></div>
+  <div class="grid">
+    <div class="cell"><div class="t"><span class="ic">🏔️</span>Peak</div><div class="n">1250 ft</div><div class="s">1000 ft+ peaks ×4</div></div>
+    <div class="cell"><div class="t"><span class="ic">⏱️</span>Duration</div><div class="n">15 min</div><div class="s">15 min+ flights ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🪀</span>Yo-yo</div><div class="n" style="white-space:nowrap">3× 300 ft <span style="font-weight:400;font-size:13px">climbs</span></div><div class="s">300 ft+ yo-yos ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏀</span>Rebound</div><div class="n" style="white-space:nowrap">500 ft <span style="font-weight:400;font-size:13px">from 125</span></div><div class="s">500 ft+ rebounds ×1</div></div>
+    <div class="cell"><div class="t"><span class="ic">🛟</span>Save from &lt;60 ft</div><div class="n" style="white-space:nowrap">60 ft <span style="font-weight:400;font-size:13px">to 300</span></div><div class="s">saves ×3</div></div>
+    <div class="cell"><div class="t"><span class="ic">🎩</span>Hat trick</div><div class="n" style="white-space:nowrap">2 hat tricks</div><div class="s" style="white-space:nowrap">5 nice flights in a day</div></div>
+    <div class="cell"><div class="t"><span class="ic">🏆</span>Record height</div><div class="n">1340 ft</div><div class="s">beaten ×4</div></div>
+    <div class="cell sel"><div class="t"><span class="ic">🏆</span>Record time</div><div class="n">16:05</div><div class="s">beaten ×2</div></div>
+  </div>
+  <div class="def"><b>Record time</b> — your longest flight ever, starting from a 10 minute floor. Every flight that beats the record earns one, showing the new record.</div>
+  <div class="ladder">
+    <span class="lbl">History</span>
+    <span class="chip hist">16:05<small>9/13/26</small></span>
+    <span class="chip hist beaten">12:44<small>9/9/26</small></span>
+    <span class="chip hist beaten">10:00<small>floor</small></span>
+    <span class="chip tally">records <b>×2</b></span>
+  </div>
+  <div class="status">Set <b>16:05</b> · 9/13/26 · Whip Tail · previous 12:44 on 9/9/26</div>
+</div>
+<p class="note">On the recap these read "New record 1340 ft" and "New record 16:05" with the gold border, rather than "PB 1340 ft".</p>
+</body>
+</html>

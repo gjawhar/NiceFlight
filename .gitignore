@@ -1,0 +1,8 @@
+.DS_Store
+._*
+*.luac
+NiceFlt/Files/*.csv
+NiceFlt/Files/*.tmp
+__pycache__/
+harness/out/
+sim/logs/

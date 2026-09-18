@@ -9,6 +9,25 @@ graph, and the badges the flight earned.
 Built for Mike Shellim's "DLG for Ethos" template (flight modes Launch = 2,
 Zoom = 3, Landing = 4, and the launch button resetting the Altitude sensor).
 
+## Screenshots
+
+Captured from the FrSky Suite X14 simulator (Ethos 26.1.2) while replaying a
+real logged flight: a 93 ft launch that sank to 49 ft, then climbed out to
+440 ft.
+
+| In flight | After landing |
+|---|---|
+| ![Live screen: flight timer and max altitude in large digits, current altitude, launch height, and a gold "New record 440 ft" badge earned in the air](docs/screenshots/live.png) | ![Recap screen: launch, max, time, time above launch, climbs, the simplified altitude graph, and three badges earned](docs/screenshots/recap.png) |
+| **Live.** Timer and max in large digits, with the latest badge earned in the air. | **Recap.** The numbers, the simplified graph, and every badge the flight earned. |
+
+| History |
+|---|
+| ![History screen: nice flights newest first, with launch height, max, duration, badge icons and model name](docs/screenshots/history.png) |
+| **History.** Every nice flight, newest first, across all planes. |
+
+"RX --" appears because the simulator does not feed the RX voltage sensor; on
+a radio it shows the receiver pack voltage.
+
 ## Screens
 
 | Screen | Shows |

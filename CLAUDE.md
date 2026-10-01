@@ -62,6 +62,19 @@ mockup/             the approved spec
 - Paint is gated to 1 Hz + input (`screen.needsPaint`): the recap graph is a
   few hundred `drawLine` calls.
 
+## Release ZIP: FrSky Suite needs a manifest
+
+`python3 tools/make_zip.py` builds and validates it. FrSky Suite's Lua
+installer (rules read out of the 2.0.1 app code, 2026-09-30) refuses a ZIP
+without `ethos_lua_manifest.json` at the ZIP ROOT ("JSON is missing" is what
+a pilot sees). manifestVersion 1, name, key, version, folder, files (globs
+allowed, must include main.lua), optional introduction and releaseNotes. It
+installs to scripts/<folder>/ and strips a leading "<folder>/" from each
+path, so the app folder sits at the ZIP root, NOT under `scripts/` (the
+0.1.8 ZIP had the old `scripts/NiceFlt/` shape and could not be installed
+that way). Only listed files are written and nothing is deleted, so
+Files/*.csv survive an upgrade. Never list a data file in `files`.
+
 ## Simulator time scale
 
 `cfg.timeScale` (CFG > Data, 1/4/8/16) multiplies the FLIGHT clock only

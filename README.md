@@ -67,10 +67,10 @@ set to m, every ladder switches to a round metric ladder.
 ## Install
 
 1. Download the ZIP attached to the release (not GitHub's "Source code" ZIP).
-   It holds `scripts/NiceFlt/` at the top level, which is what Ethos Suite's
-   Lua installer and a manual copy both expect.
-2. Ethos Suite: Lua Library > Install lua script > pick the ZIP. Or unzip it
-   and copy the `scripts/NiceFlt` folder onto the radio so the path is
+2. **FrSky Suite:** connect the radio, open the Lua page, choose "Install Lua
+   scripts", and pick the ZIP. The ZIP carries the `ethos_lua_manifest.json`
+   FrSky Suite requires. **Or by hand:** unzip it and copy the `NiceFlt`
+   folder into the radio's `scripts` folder, so the path is
    `scripts/NiceFlt/main.lua`.
 3. Reboot the radio. Ethos only scans scripts at boot.
 4. Add a new main-screen page, choose the full-screen layout, and pick
@@ -106,8 +106,9 @@ and why), `flights.csv` has every throw, `badges.csv` every badge. An Ethos
 telemetry log of the same session (Altitude plus the logic switches) lets a
 flight be replayed exactly with `harness/replay.py`.
 
-When upgrading, replace the `.lua` files and `icons/` only. `Files/` holds
-your flights and badges.
+When upgrading, install the new ZIP through FrSky Suite (it only writes the
+code files and leaves your data alone), or by hand replace the `.lua` files
+and `icons/` only. `Files/` holds your flights and badges.
 
 ## Development
 
@@ -116,6 +117,7 @@ pip3 install lupa
 python3 harness/run.py        # executes the real widget code against mocked Ethos
 python3 harness/render.py     # renders the real paint output to harness/out/*.svg
 python3 tools/make_icons.py   # regenerates the badge icons
+python3 tools/make_zip.py     # builds the release ZIP with the FrSky Suite manifest and checks it
 tools/deploy_sim.sh           # copies the widget into every simulator persist folder
 ```
 

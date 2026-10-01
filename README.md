@@ -48,11 +48,11 @@ quarters of your height and climb back over it), Save from <60 ft (get under
 height and Record time. Badges belong to the pilot, not the plane. With Units
 set to m, every ladder switches to a round metric ladder.
 
-> **Pre-release, for field testing.** It has been developed against a harness
-> and proven in the FrSky Suite simulator by replaying real logged flights,
-> but as of 0.1.8 it has not yet flown on a real radio. It only reads
-> telemetry and flight modes and writes its own CSV files; it never touches
-> your model, mixes or trims.
+> **Status.** Version 1.0. First flown on 2026-09-30 on an X14: 62 throws
+> across two gliders, with flight detection, the recap, History, Badges and
+> the alerts all confirmed on the radio. It only reads telemetry and flight
+> modes and writes its own CSV files; it never touches your model, mixes or
+> trims.
 
 ## Requirements
 

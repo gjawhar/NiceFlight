@@ -11,22 +11,23 @@ Zoom = 3, Landing = 4, and the launch button resetting the Altitude sensor).
 
 ## Screenshots
 
-Captured from the FrSky Suite X14 simulator (Ethos 26.1.2) while replaying a
-real logged flight: a 93 ft launch that sank to 49 ft, then climbed out to
-440 ft.
+The recap and the Badges screen are straight off an X14 after a real flight
+on 2026-09-30: an 82 ft launch that sank to 58 ft, then climbed out to 832 ft
+and stayed up for 13:47.
 
-| In flight | After landing |
+| After landing | Badges |
 |---|---|
-| ![Live screen: flight timer and max altitude in large digits, current altitude, launch height, and a gold "New record 440 ft" badge earned in the air](docs/screenshots/live.png) | ![Recap screen: launch, max, time, time above launch, climbs, the simplified altitude graph, and three badges earned](docs/screenshots/recap.png) |
-| **Live.** Timer and max in large digits, with the latest badge earned in the air. | **Recap.** The numbers, the simplified graph, and every badge the flight earned. |
+| ![Recap screen on the radio: launch 82 ft, max 832 ft, 13:47, four climbs, the simplified altitude graph, and the badges earned: Peak 800 ft, 10 min, Save from 58 ft and two new records](docs/screenshots/recap.png) | ![Badges screen on the radio: eight badge families with what has been earned, the Peak ladder with 400, 600 and 800 ft earned, and a plain definition](docs/screenshots/badges.png) |
+| **Recap.** The numbers, the simplified graph, and every badge the flight earned. | **Badges.** What you have, what is left to chase, and a plain definition of each. |
 
-| History |
-|---|
-| ![History screen: nice flights newest first, with launch height, max, duration, badge icons and model name](docs/screenshots/history.png) |
-| **History.** Every nice flight, newest first, across all planes. |
+| In flight | History |
+|---|---|
+| ![Live screen: flight timer and max altitude in large digits, current altitude, launch height, and a gold "New record 440 ft" badge earned in the air](docs/screenshots/live.png) | ![History screen: nice flights newest first, with launch height, max, duration, badge icons and model name](docs/screenshots/history.png) |
+| **Live.** Timer and max in large digits, with the latest badge earned in the air. | **History.** Every nice flight, newest first, across all planes. |
 
-"RX --" appears because the simulator does not feed the RX voltage sensor; on
-a radio it shows the receiver pack voltage.
+The Live and History captures are from the FrSky Suite simulator replaying a
+logged flight, where "RX --" appears because the simulator does not feed the
+RX voltage sensor; on a radio it shows the receiver pack voltage.
 
 ## Screens
 

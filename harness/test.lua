@@ -220,7 +220,7 @@ fly({ { 0, 0 }, { 4, 171 }, { 115, 55 }, { 268, 402 }, { 380, 200 }, { 500, 588 
 check(sawLive, "live screen: timer, stacked bottom lines")
 check(liveBounds, "live: every text inside the canvas")
 check(pillSeen, "live: badge pill with BADGE EARNED label after a mid-flight badge")
-check(SIM.haptics > 0 and SIM.haptics <= 8, "mid-flight badges vibrate once per moment, not once per rung (" .. SIM.haptics .. ")")
+check(SIM.haptics > 0 and SIM.haptics <= 9, "mid-flight badges vibrate once per moment, not once per rung (" .. SIM.haptics .. ")")
 check(tonesMid > 0, "mid-flight badge also plays a short beep (" .. tostring(tonesMid) .. ")")
 check(core.state() == "recap", "nice flight lands on the recap")
 local fr = lastFlightRow()
@@ -476,6 +476,57 @@ do
   r = lastFlightRow()
   check(tonumber(r[6]) >= 55 and tonumber(r[6]) <= 70, "its clock stops where the plane was last seen (" .. tostring(r[6]) .. " s)")
   SIM.altAge = 100; core.dismissRecap()
+end
+
+-- ---------------------------------------------------------------- nice-flight alert
+
+print("\n-- in-flight nice-flight alert: its own sound, once, distinct from a badge")
+core.erase(); core.dismissRecap()
+do
+  SIM.tones, SIM.haptics = 0, 0
+  local atCross, afterCross, labelSeen = nil, nil, false
+  -- 320 ft and 2 minutes: nice by height, and no badge anywhere near (Peak starts at 400)
+  fly({ { 0, 0 }, { 4, 100 }, { 40, 320 }, { 100, 30 }, { 104, 4 } }, true, function(t)
+    if t == 30 then atCross = SIM.tones end                    -- still under 300 ft
+    if t == 45 then afterCross = SIM.tones; labelSeen = sawText("NICE FLIGHT!") end
+  end)
+  check(atCross == 0, "silent until the flight qualifies")
+  check(afterCross == 3, "crossing 300 ft plays the three-note chime (" .. tostring(afterCross) .. " tones)")
+  check(labelSeen, "the timer label turns into NICE FLIGHT! on the Live screen")
+  local niceRow, badgeRow2 = false, false
+  for _, r in ipairs(rows("diag")) do
+    if r[3] == "alert" and (r[4] or ""):find("nice tone=ok haptic=ok", 1, true) then niceRow = true end
+  end
+  check(niceRow, "diag records the nice-flight alert")
+  check(SIM.haptics == 1, "exactly one buzz in flight, the long one (" .. SIM.haptics .. ")")
+  sec(3)
+  check(SIM.haptics == 2 and SIM.tones == 5, "the landing alert still follows two seconds after touchdown (" .. SIM.haptics .. " buzzes, " .. SIM.tones .. " tones)")
+  core.dismissRecap()
+  -- nice and a badge in the SAME second: only the chime sounds, the badge still gets the pill
+  SIM.tones = 0
+  local t3, pill = nil, nil
+  SIM.fm = 2; SIM.alt = 0; sec(1); SIM.fm = 3; tick(); SIM.fm = 0
+  for t2 = 1, 12 do SIM.alt = math.min(250, t2 * 30); sec(1) end
+  SIM.alt = 450; sec(1)                                          -- 250 -> 450 ft in one second
+  t3 = SIM.tones; pill = core.live() and core.live().pill
+  check(t3 == 3, "nice + Peak 400 in the same second: the chime only, no extra beep (" .. tostring(t3) .. ")")
+  check(pill and pill.fam ~= nil, "and the badge still takes the pill")
+  SIM.alt = 480; sec(2)
+  check(SIM.tones == 3, "the chime never repeats within a flight")
+  for t2 = 1, 20 do SIM.alt = math.max(3, 480 - t2 * 30); sec(1) end
+  SIM.fm = 4; sec(4); SIM.fm = 0; tick(); core.dismissRecap()
+end
+
+-- ---------------------------------------------------------------- model switch re-detects the sensor unit
+
+print("\n-- in-place model switch between a metres model and a feet model")
+do
+  SIM.model = "Vortex 4"; SIM.altUnit = "m"; sec(1)
+  check(core.S.sensorUnit == "m", "switching to a model whose Altitude is in metres detects m")
+  SIM.model = "Storm Zen"; SIM.altUnit = "ft"; sec(1)
+  check(core.S.sensorUnit == "ft", "switching back to a feet model re-detects ft without a reboot (field bug 2026-09-30)")
+  local fmOk = core.currentFlightMode() ~= nil
+  check(fmOk and core.S.altSrc ~= nil, "sources are re-resolved for the new model")
 end
 
 -- ---------------------------------------------------------------- simulator time scale

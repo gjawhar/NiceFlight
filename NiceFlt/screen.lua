@@ -155,7 +155,7 @@ function screen.new(opts)
     if gap < 2 then gap = 2 end
 
     local y = top + gap
-    draw.label(x1, y, cells[1][1], p); draw.label(x2, y, cells[2][1], p)
+    draw.label(x1, y, cells[1][1], p, cells[1].color); draw.label(x2, y, cells[2][1], p)
     drawRx(w, y, m, p)
     y = y + m.th + 2
     local function hero(x, cell)
@@ -187,7 +187,8 @@ function screen.new(opts)
     if not lv then return end
     local u = core.unit()
     local cells = {
-      { "Flight", core.fmtTime(lv.elapsed) },
+      -- once the flight qualifies, the timer's label says so in green
+      { lv.nice and "Nice flight!" or "Flight", core.fmtTime(lv.elapsed), color = lv.nice and p.good or nil },
       { "Max", core.fmtAlt(lv.max), u },
       { "Now", lv.now and core.fmtAlt(lv.now) or "--", u },
       { "Launch", lv.launch and core.fmtAlt(lv.launch) or "--", u },

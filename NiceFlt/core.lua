@@ -9,7 +9,7 @@
 -- is CPU time (useless); pcall every Ethos call that can be missing.
 
 local core = {}
-core.VERSION = "0.1.8"
+core.VERSION = "0.1.9"
 
 local FT_PER_M = 3.28084
 
@@ -1014,15 +1014,33 @@ local function sampleFlight(F, now, alt, fm, dt)
       F.pill = it                                -- silent value update (Peak 1000 -> 1100)
     end
   end
+  -- The moment the flight becomes a NICE flight: it beat the height or the
+  -- time bar, or earned a badge. Told apart from a badge by ear and by feel
+  -- (pilot's request after the first field test): a badge is one short high
+  -- beep and a short buzz; a nice flight is a rising three-note chime and a
+  -- long buzz, once per flight. If both happen in the same second only the
+  -- chime plays, and the badge still takes the pill.
+  local l = L()
+  local niceNow = (F.maxAlt / l.k >= S.cfg.niceHeight) or (t >= S.cfg.niceTimeMin * 60) or (next(F.earned) ~= nil)
+  local becameNice = niceNow and not F.nice
+  if niceNow then F.nice = true end
+  if becameNice and alertsOn() then
+    local aOk, aErr = tone(660, 110, 40)
+    tone(880, 110, 40)
+    local cOk, cErr = tone(1320, 240)
+    local hOk, hErr = haptic(600)
+    diag("alert", "nice tone=" .. verdict(aOk and cOk, aErr or cErr) .. " haptic=" .. verdict(hOk, hErr))
+  end
   if newest and alertsOn() then
-    -- one buzz and one SHORT beep however many rungs fell this second (the
-    -- pilot asked for the beep, 2026-09-17; short so it cannot mask the vario)
-    local hOk, hErr = haptic(250)
-    local tOk, tErr = tone(1500, 90)
     F.pill = newest
-    if not F.alertLogged then
-      F.alertLogged = true
-      diag("alert", "badge tone=" .. verdict(tOk, tErr) .. " haptic=" .. verdict(hOk, hErr))
+    if not becameNice then
+      -- one buzz and one SHORT beep however many rungs fell this second
+      local hOk, hErr = haptic(250)
+      local tOk, tErr = tone(1500, 90)
+      if not F.alertLogged then
+        F.alertLogged = true
+        diag("alert", "badge tone=" .. verdict(tOk, tErr) .. " haptic=" .. verdict(hOk, hErr))
+      end
     end
   end
 end
@@ -1130,7 +1148,7 @@ function core.live()
   end
   return { elapsed = clock() - F.t0, max = F.maxAlt, now = F.alt,
            launch = F.launchFrozen and F.launchPeak or nil, above = F.above,
-           climbs = climbs, pill = F.pill, telem = core.telemetryState() }
+           climbs = climbs, pill = F.pill, nice = F.nice == true, telem = core.telemetryState() }
 end
 
 -- One entry per badge family for the Badges screen.
@@ -1366,9 +1384,15 @@ function core.wakeup()
   if name ~= S.model then
     S.model = name
     S.F, S.recap, S.alertAt, S.prevFM, S.armed = nil, nil, nil, nil, false
-    S.rxBattSrc = nil
+    -- EVERY source belongs to the model, and so does the altitude sensor's
+    -- unit. Found in the first field log (2026-09-30): booting on a model
+    -- whose Altitude is in metres and switching in place to a feet model
+    -- kept unit=m, which would have scaled every height by 3.28.
+    S.altSrc, S.fmSrc, S.rxBattSrc, S.rxLowSrc = nil, nil, nil, nil
+    S.fs, S.prevFS = {}, {}
     loadConfig(); loadBadges()
-    core.resolveRxSource()
+    resolveSources()
+    S.sourcesAt = now
     diag("model", name .. " " .. sourcesSummary())
   end
 

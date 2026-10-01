@@ -91,9 +91,9 @@ function draw.textRight(xRight, y, text)
 end
 
 -- Small caps-style field label ("FLIGHT", "MAX").
-function draw.label(x, y, text, p)
+function draw.label(x, y, text, p, color)
   draw.font("small")
-  lcd.color(p.dim)
+  lcd.color(color or p.dim)
   draw.textAt(x, y, string.upper(text))
   local _, th = lcd.getTextSize("8")
   return th

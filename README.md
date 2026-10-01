@@ -78,6 +78,18 @@ set to m, every ladder switches to a round metric ladder.
 5. Fly. Every throw is logged; a flight over 300 ft or 5 minutes lands on a
    recap, with a tone and a vibration.
 
+### What you hear and feel
+
+| When | Sound | Vibration |
+|---|---|---|
+| The flight becomes a nice flight (passes your height or time bar) | rising three-note chime | one long buzz |
+| A badge is earned in the air | one short high beep | one short buzz |
+| A nice flight has landed, recap waiting | two rising notes | one buzz |
+
+The chime plays once per flight, and the timer's label turns to a green
+"NICE FLIGHT!". If a badge falls in the same second, only the chime sounds.
+CFG > Alerts turns all of it off.
+
 Keys are FS1 to FS4 above the screen and work whenever the page is showing.
 The rotary and ENTER need the widget focused first (press ENTER once). CFG
 is on FS4 from the idle screen, or long-press the widget.

@@ -476,6 +476,19 @@ do
   r = lastFlightRow()
   check(tonumber(r[6]) >= 55 and tonumber(r[6]) <= 70, "its clock stops where the plane was last seen (" .. tostring(r[6]) .. " s)")
   SIM.altAge = 100; core.dismissRecap()
+
+  -- telemetry drops out while braking down from a thermal: the flight stays
+  -- open; once the link is back and the plane is low, the brake lands it
+  SIM.fm = 2; SIM.alt = 0; sec(1); SIM.fm = 3; tick(); SIM.fm = 0
+  for t2 = 1, 60 do SIM.alt = math.min(800, t2 * 15); sec(1) end
+  SIM.fm = 4; SIM.altAge = -1
+  sec(10); check(core.state() == "live", "brake held through a dropout at 800 ft does not end the flight")
+  SIM.fm = 0; SIM.altAge = 100
+  for t2 = 1, 40 do SIM.alt = math.max(10, 800 - t2 * 20); sec(1) end
+  SIM.fm = 4; SIM.altAge = -1; sec(4)
+  r = lastFlightRow()
+  check(core.state() == "recap" and tonumber(r[6]) >= 110, "brake held through a dropout last seen at 10 ft lands the flight, full length (" .. tostring(r[6]) .. " s)")
+  SIM.fm = 0; SIM.altAge = 100; core.dismissRecap()
 end
 
 -- ---------------------------------------------------------------- nice-flight alert

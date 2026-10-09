@@ -57,8 +57,9 @@ set to m, every ladder switches to a round metric ladder.
 
 ## Requirements
 
-- FrSky Ethos 26.1 or later (developed on an X14 with 26.1.2; X20-class radios
-  get the same layout, with tap on the key labels).
+- FrSky Ethos 1.6 or 26.1 (developed on an X14 with 26.1.2; also loads and
+  runs on Ethos 1.6, checked in the 1.6.8 simulator. X20-class radios get the
+  same layout, with tap on the key labels).
 - Mike Shellim's **DLG for Ethos** template, or a model whose flight modes
   match it: Launch = 2, Zoom = 3, Landing = 4, with the launch button
   resetting the Altitude sensor.
@@ -68,11 +69,15 @@ set to m, every ladder switches to a round metric ladder.
 ## Install
 
 1. Download the ZIP attached to the release (not GitHub's "Source code" ZIP).
-2. **FrSky Suite:** connect the radio, open the Lua page, choose "Install Lua
-   scripts", and pick the ZIP. The ZIP carries the `ethos_lua_manifest.json`
-   FrSky Suite requires. **Or by hand:** unzip it and copy the `NiceFlt`
-   folder into the radio's `scripts` folder, so the path is
-   `scripts/NiceFlt/main.lua`.
+2. **FrSky Suite 2.0 or later:** connect the radio, open the Lua page, choose
+   "Install Lua scripts", and pick the ZIP. The ZIP carries the
+   `ethos_lua_manifest.json` FrSky Suite requires. The older Ethos Suite
+   (used with Ethos 1.6 radios) may not install it; copy it by hand instead.
+   **By hand:** connect the radio as a USB drive, unzip the ZIP, open the
+   unzipped folder and drag **only the `NiceFlt` folder** into the radio's
+   `scripts` folder. The path must be exactly `scripts/NiceFlt/main.lua`;
+   if Nice Flight! is missing from the widget list, the usual cause is an
+   extra folder level such as `scripts/NiceFlight-v1.0.1/NiceFlt/`.
 3. Reboot the radio. Ethos only scans scripts at boot.
 4. Add a new main-screen page, choose the full-screen layout, and pick
    **Nice Flight!** as its widget.

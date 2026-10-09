@@ -9,7 +9,7 @@
 -- is CPU time (useless); pcall every Ethos call that can be missing.
 
 local core = {}
-core.VERSION = "1.0.0"
+core.VERSION = "1.0.1"
 
 local FT_PER_M = 3.28084
 
@@ -1089,10 +1089,12 @@ local function pollFlight(now)
     sampleFlight(F, now, alt, fm, dt)
   end
 
-  -- landing: brakes held, and low (or blind). A brake in the air is ignored.
+  -- landing: brakes held, and low. A brake in the air is ignored. Blind (no
+  -- fresh altitude) judges by the last height seen, so a telemetry dropout
+  -- while braking down from a thermal doesn't end the flight in the air.
   if fm == FM_LANDING then
     F.brakeSince = F.brakeSince or now
-    local low = (alt == nil) or (alt / L().k < (S.cfg.landAlt or L().landAlt))
+    local low = ((alt or F.lastAlt or 0) / L().k) < (S.cfg.landAlt or L().landAlt)
     if low and now - F.brakeSince >= BRAKE_HOLD_SEC and now - F.t0 >= 3 then
       closeFlight("brake", now)
       return

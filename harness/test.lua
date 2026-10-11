@@ -443,11 +443,12 @@ do
   check(app.V.screen == "stats" and app.V.statsView == "flying", "FS1 opens Stats on the Flying view")
   check(sawText("PLANE") and sawText("THERMAL") and sawText("Bull Nose") and sawText("All planes"), "flying table drawn")
   check(sawText("100%") and sawText("424 ft") and sawText("9:02"), "table values (424 ft avg top, 9:02 avg air)")
-  check(not sawText("MORE"), "no MORE key when every plane fits")
+  check(not sawText("DOWN") and not sawText("of 2 planes"), "no DOWN key or count when every plane fits")
+  check(sawText("thermal = 50 ft+ above launch"), "thermal definition on the bottom line")
   boundsCheck("stats flying")
   app.pressKey(3); paint()
   check(app.V.statsView == "badges", "BADGES key on Stats switches view, not screen")
-  check(sawText("Peak 1300 ft") and sawText("Record 16:05") and sawText("15 badges  -  1 throw"), "badge pills per plane")
+  check(sawText("Peak 1300 ft") and sawText("Record 16:05") and sawText("15 badges - 1 throw"), "badge pills per plane")
   boundsCheck("stats badges")
   app.pressKey(2); paint()
   check(app.V.statsView == "flying", "FLYING key switches back")
@@ -484,6 +485,31 @@ do
   tick()
   check(sawText("Today") and sawText("1 thermal"), "idle screen: today's line with the thermal count")
   boundsCheck("idle with today's line")
+  -- more planes than fit: DOWN scrolls one at a time and wraps, the footer counts
+  local keepModel = SIM.model
+  for i = 1, 6 do
+    SIM.model = "Plane " .. i; sec(1)
+    fly({ { 0, 0 }, { 4, 90 }, { 30, 90 }, { 40, 10 }, { 44, 4 } })
+  end
+  SIM.model = keepModel; sec(1)
+  CH = 200                                        -- a short canvas: 3 rows fit
+  app.pressKey(1); paint()
+  check(#core.stats().planes == 7 and app.V.statsFit == 3, "7 planes, 3 fit on a 200 px canvas (" .. tostring(app.V.statsFit) .. ")")
+  check(sawText("DOWN") and sawText("1-3 of 7 planes - DOWN for more"), "DOWN key and the count appear when planes do not fit")
+  app.pressKey(4); paint()
+  check(app.V.statsTop == 2 and sawText("2-4 of 7 planes - DOWN for more"), "DOWN scrolls one plane")
+  for _ = 1, 3 do app.pressKey(4) end
+  paint()
+  check(app.V.statsTop == 5 and sawText("5-7 of 7 planes"), "scrolls to the last page")
+  app.pressKey(4); paint()
+  check(app.V.statsTop == 1, "DOWN wraps to the top")
+  app.event(KEY_ROTARY_RIGHT, 1, nil, EVT_KEY); check(app.V.statsTop == 2, "rotary scrolls down")
+  app.event(KEY_ROTARY_LEFT, 1, nil, EVT_KEY); check(app.V.statsTop == 1, "rotary scrolls up")
+  boundsCheck("stats flying 640x200")
+  app.pressKey(3); paint(); boundsCheck("stats badges 640x200")
+  check(sawText("of 7 planes - DOWN for more"), "badges view scrolls the same way")
+  app.event(KEY_RTN_FIRST, nil, nil, EVT_KEY)
+  CH = 360
   fly({ { 0, 0 }, { 4, 170 }, { 40, 450 }, { 80, 30 }, { 84, 4 } })          -- the 450 record the metric section expects
   core.dismissRecap()
 end

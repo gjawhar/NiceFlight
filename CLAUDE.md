@@ -38,7 +38,9 @@ CFG climb size, judged at viewing time from the stored numbers. Badges per
 plane are one pill per family with that plane's best (`statsBadgeLabel`:
 records read "Record 832 ft", not "New record"). The Flying table is painted
 BEFORE the key row so `V.statsFit` is known when keysFor() decides whether
-the MORE key (page through planes, wrapping) is shown. The idle screen's
+the DOWN key (scroll one plane, wrapping; rotary goes both ways) is shown;
+the footer then says "1-6 of 9 planes - DOWN for more". No title line: the
+pilot wanted the rows, the thermal definition lives on the bottom line. The idle screen's
 second text line is today's version of the same measures (today() carries
 launchSum / durSum / thermals, tallied from the ROUNDED values as stored).
 Mockup: `mockup/stats_screen.html` (numbers from the pilot's real flights).

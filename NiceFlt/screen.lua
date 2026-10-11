@@ -65,9 +65,10 @@ function screen.new(opts)
     if V.screen == HISTRECAP then return { "BACK", nil, nil, nil } end
     if V.screen == BADGES then return { "BACK", nil, "PREV", "NEXT" } end
     if V.screen == STATS then
-      -- MORE pages through planes that did not fit, wrapping to the top
-      local n = (V.statsView == "flying") and #core.stats().planes or #core.stats().planes
-      return { "BACK", "FLYING", "BADGES", (n > V.statsFit) and "MORE" or nil }
+      -- DOWN scrolls one plane at a time (wrapping to the top); the rotary
+      -- goes both ways. Only offered when the planes do not all fit.
+      local n = #core.stats().planes
+      return { "BACK", "FLYING", "BADGES", (n > V.statsFit) and "DOWN" or nil }
     end
     if st == "live" then return { nil, nil, nil, nil } end
     if st == "recap" then return { "DISMISS", "HISTORY", "BADGES", "CFG" } end
@@ -116,9 +117,6 @@ function screen.new(opts)
     elseif key == "STATS" then openStats("flying")
     elseif key == "FLYING" then openStats("flying")
     elseif key == "BADGES" and V.screen == STATS then openStats("badges")
-    elseif key == "MORE" then
-      local n = #core.stats().planes
-      if V.statsTop + V.statsFit > n then V.statsTop = 1 else V.statsTop = V.statsTop + V.statsFit end
     elseif key == "HISTORY" then V.screen = HISTORY; V.histSel, V.histTop = 1, 1
     elseif key == "BADGES" then V.screen = BADGES
     elseif key == "CFG" then openConfig()
@@ -128,6 +126,9 @@ function screen.new(opts)
       local f = core.history()[V.histSel]
       if f then V.histFlight = f; V.badgeSel = 1; V.screen = HISTRECAP end
     elseif key == "UP" then moveHist(-1)
+    elseif key == "DOWN" and V.screen == STATS then
+      local n = #core.stats().planes
+      if V.statsTop >= n - V.statsFit + 1 then V.statsTop = 1 else V.statsTop = V.statsTop + 1 end
     elseif key == "DOWN" then moveHist(1)
     elseif key == "PREV" then moveFam(-1)
     elseif key == "NEXT" then moveFam(1)
@@ -532,31 +533,27 @@ function screen.new(opts)
 
   -- ------------------------------------------------------------ stats
 
-  -- Header shared by both views: title, then what the numbers cover.
-  local function statsHeader(w, m, p, top, st)
-    local x1 = m.pad * 3
-    local y = top + 2
-    draw.font("mid"); lcd.color(p.text)
-    draw.textAt(x1, y, "Stats")
-    local tw, th = lcd.getTextSize("Stats")
-    draw.font("small"); lcd.color(p.dim)
-    local _, sh = lcd.getTextSize("8")
-    local sub
-    if V.statsView == "flying" then
-      sub = string.format("all time - %d throw%s - thermal = +%d %s",
-        st.throws, st.throws == 1 and "" or "s", core.S.cfg.climb, core.unit())
-    else
-      sub = string.format("all time - %d badge%s", st.nBadges, st.nBadges == 1 and "" or "s")
+  -- Bottom line shared by both views: the thermal definition at the left,
+  -- and at the right which planes are showing when they do not all fit, so
+  -- it is obvious there is more below. Returns the y the body must stop at.
+  local function statsFooter(w, h, m, p, first, last, n, note)
+    draw.font("tiny")
+    local _, th = lcd.getTextSize("8")
+    local y = h - th - 3
+    lcd.color(p.dim)
+    draw.textAt(m.pad * 3, y, note, math.floor(w * 0.5))
+    if n > last - first + 1 then
+      draw.textRight(w - m.pad * 3, y, string.format("%d-%d of %d planes - DOWN for more", first, last, n))
     end
-    draw.textAt(x1 + tw + 10, y + (th - sh) - 2, sub, w - x1 * 2 - tw - 10)
-    return y + th + 4, x1
+    return y - 3
   end
 
   local function paintStatsFlying(w, h, m, p, top, st)
-    local y, x1 = statsHeader(w, m, p, top, st)
+    local x1 = m.pad * 3
     local u = core.unit()
-    -- plane name left; six numeric columns right-aligned at these fractions
-    -- headers stay short: the tiny font still needs about 9 px per letter
+    local y = top + 2
+    -- plane name left; six numeric columns right-aligned at these fractions.
+    -- Headers stay short: the tiny font still needs about 9 px per letter.
     local heads = { "Plane", "Throws", "Nice", "Launch", "Air", "Thermal", "Top" }
     local rights = { 0, 0.33, 0.44, 0.58, 0.70, 0.84, 1.0 }
     local function rx(i) return x1 + math.floor((w - x1 * 2) * rights[i]) end
@@ -568,13 +565,16 @@ function screen.new(opts)
     lcd.color(p.line); lcd.drawLine(x1, y, w - x1, y)
     local rowH = m.th + 6
     local planes = st.planes
+    local note = string.format("thermal = %d %s+ above launch", core.S.cfg.climb, u)
     if #planes == 0 then
       draw.font("small"); lcd.color(p.dim)
       draw.textAt(x1, y + 8, "No flights yet.")
       V.statsFit = 1
+      statsFooter(w, h, m, p, 1, 0, 0, note)
       return
     end
-    local bottom = h - m.pad - 2
+    local footTop = statsFooter(w, h, m, p, 1, 0, 0, "")      -- measure only; drawn again below
+    local bottom = footTop
     if st.all then bottom = bottom - rowH - 3 end        -- the All row keeps the last slot
     local fit = math.max(1, math.floor((bottom - y - 1) / rowH))
     V.statsFit = fit
@@ -590,28 +590,34 @@ function screen.new(opts)
       draw.textRight(rx(7), ry + 3, b.avgTop and (core.fmtAlt(b.avgTop) .. " " .. u) or "--")
     end
     local ry = y + 1
-    for i = V.statsTop, math.min(#planes, V.statsTop + fit - 1) do
+    local last = math.min(#planes, V.statsTop + fit - 1)
+    for i = V.statsTop, last do
       local b = planes[i]
       row(ry, b, b.thin and p.grey or p.text)
       ry = ry + rowH
       lcd.color(p.line); lcd.drawLine(x1, ry - 1, w - x1, ry - 1)
     end
     if st.all then
-      local ay = h - m.pad - 2 - rowH
+      local ay = footTop - rowH
       lcd.color(p.text); lcd.drawLine(x1, ay - 1, w - x1, ay - 1)
       row(ay, st.all, p.text)
     end
+    statsFooter(w, h, m, p, V.statsTop, last, #planes, note)
   end
 
   local function paintStatsBadges(w, h, m, p, top, st)
-    local y, x1 = statsHeader(w, m, p, top, st)
+    local x1 = m.pad * 3
     local planes = st.planes
+    local note = string.format("all time - %d badge%s", st.nBadges, st.nBadges == 1 and "" or "s")
+    local y = top + 2
     if #planes == 0 then
       draw.font("small"); lcd.color(p.dim)
       draw.textAt(x1, y + 8, "No flights yet.")
       V.statsFit = 1
+      statsFooter(w, h, m, p, 1, 0, 0, note)
       return
     end
+    local footTop = statsFooter(w, h, m, p, 1, 0, 0, "")
     local maxW = w - x1 * 2
     local _, pillH = draw.pill(0, 0, "peak", "8", "normal", "small", p, true)
     local nameH, tinyH = fontH("small"), fontH("tiny")
@@ -630,19 +636,20 @@ function screen.new(opts)
     local fit, used = 0, 0
     for i = V.statsTop, #planes do
       local bh = blockH(planes[i])
-      if y + used + bh > h - m.pad then break end
+      if y + used + bh > footTop then break end
       used, fit = used + bh, fit + 1
     end
     if fit == 0 then fit = 1 end
     V.statsFit = fit
-    for i = V.statsTop, math.min(#planes, V.statsTop + fit - 1) do
+    local last = math.min(#planes, V.statsTop + fit - 1)
+    for i = V.statsTop, last do
       local b = planes[i]
       draw.font("small"); lcd.color(b.thin and p.grey or p.text)
       draw.textAt(x1, y, b.model, math.floor(maxW * 0.5))
       local nw = lcd.getTextSize(b.model)
       draw.font("tiny"); lcd.color(p.dim)
       draw.textAt(x1 + nw + 8, y + (nameH - tinyH) - 1,
-        string.format("%d badge%s  -  %d throw%s", b.nBadges, b.nBadges == 1 and "" or "s", b.throws, b.throws == 1 and "" or "s"))
+        string.format("%d badge%s - %d throw%s", b.nBadges, b.nBadges == 1 and "" or "s", b.throws, b.throws == 1 and "" or "s"))
       y = y + nameH + 2
       if #b.badges == 0 then
         draw.font("tiny"); lcd.color(p.grey)
@@ -668,6 +675,7 @@ function screen.new(opts)
         y = cy + pillH + 6
       end
     end
+    statsFooter(w, h, m, p, V.statsTop, last, #planes, note)
   end
 
   local function paintStats(w, h, m, p, top)

@@ -504,6 +504,10 @@ do
   app.pressKey(4); paint()
   check(app.V.statsTop == 1, "DOWN wraps to the top")
   app.event(KEY_ROTARY_RIGHT, 1, nil, EVT_KEY); check(app.V.statsTop == 2, "rotary scrolls down")
+  app.event(KEY_ROTARY_RIGHT, 1, nil, EVT_KEY); app.event(KEY_ROTARY_RIGHT, 1, nil, EVT_KEY)
+  app.event(KEY_ROTARY_RIGHT, 1, nil, EVT_KEY); app.event(KEY_ROTARY_RIGHT, 1, nil, EVT_KEY)
+  check(app.V.statsTop == 5, "rotary stops at the last position, no wrap")
+  app.event(KEY_ROTARY_LEFT, 4, nil, EVT_KEY); check(app.V.statsTop == 1, "a fast turn scrolls several planes")
   app.event(KEY_ROTARY_LEFT, 1, nil, EVT_KEY); check(app.V.statsTop == 1, "rotary scrolls up")
   boundsCheck("stats flying 640x200")
   app.pressKey(3); paint(); boundsCheck("stats badges 640x200")
@@ -695,6 +699,15 @@ menu0[1][2]()
 check(wdg.app.V.screen == "stats", "menu Stats entry opens the Stats screen")
 wdg.app.pressKey(1)
 check(wdg.app.V.screen == "auto", "BACK leaves Stats")
+do
+  local resets = 0
+  lcd.resetFocusTimeout = function() resets = resets + 1 end
+  wdg.app.open("stats"); reg.wakeup(wdg); reg.wakeup(wdg)
+  check(resets == 2, "focus kept alive every wakeup while a scrolling screen shows")
+  wdg.app.pressKey(1); reg.wakeup(wdg)
+  check(resets == 2, "not on the idle screen")
+  lcd.resetFocusTimeout = function() end
+end
 formFields = {}
 menu0[2][2]()                                  -- the long-press menu's settings entry
 check(#formFields >= 10, "settings form built from the menu (" .. #formFields .. " fields)")

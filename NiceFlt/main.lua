@@ -44,6 +44,11 @@ local function widgetWakeup(widget)
   end
 
   if widget and widget.app then
+    -- Reading a list is idle time to Ethos, which drops focus after ten
+    -- seconds; hold it on the scrolling screens so the wheel keeps working
+    if widget.app.scrolls() and lcd.hasFocus and lcd.resetFocusTimeout and lcd.hasFocus() then
+      pcall(lcd.resetFocusTimeout)
+    end
     local ok4, need = pcall(widget.app.needsPaint)
     if not ok4 or need then lcd.invalidate() end
   else

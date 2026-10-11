@@ -109,6 +109,8 @@ function screen.new(opts)
     lcd.invalidate()
   end
   function self.open(name) if name == "stats" then openStats("flying") end end
+  -- screens the rotary scrolls through (focus is kept alive on these)
+  function self.scrolls() return V.screen == STATS or V.screen == HISTORY or V.screen == BADGES end
 
   local function activate(i)
     local key = keysFor()[i]

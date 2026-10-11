@@ -110,4 +110,8 @@ app.pressKey(2); shot("6_history")
 app.event(KEY_RTN_FIRST, nil, nil, EVT_KEY)
 app.pressKey(3); shot("7_badges_peak")
 for i = 2, 8 do app.pressKey(4); if i == 3 or i == 5 or i == 6 or i == 7 then shot("8_badges_" .. core.FAMILIES[i]) end end
+app.event(KEY_RTN_FIRST, nil, nil, EVT_KEY)
+app.pressKey(1); shot("9_stats_flying")
+app.pressKey(3); shot("9_stats_badges")
+app.event(KEY_RTN_FIRST, nil, nil, EVT_KEY)
 print("rendered")

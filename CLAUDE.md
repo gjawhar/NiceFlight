@@ -29,6 +29,20 @@ tools/              make_icons.py, deploy_sim.sh
 mockup/             the approved spec
 ```
 
+## Stats screen (1.1.0)
+
+`core.stats()` reads flights.csv and badges.csv whole and caches on
+`S.dataRev` (bumped by loadFlights and closeFlight) plus units and climb
+size. Thermal hit = `core.isThermal(launchFt, maxFt)`: max - launch >= the
+CFG climb size, judged at viewing time from the stored numbers. Badges per
+plane are one pill per family with that plane's best (`statsBadgeLabel`:
+records read "Record 832 ft", not "New record"). The Flying table is painted
+BEFORE the key row so `V.statsFit` is known when keysFor() decides whether
+the MORE key (page through planes, wrapping) is shown. The idle screen's
+second text line is today's version of the same measures (today() carries
+launchSum / durSum / thermals, tallied from the ROUNDED values as stored).
+Mockup: `mockup/stats_screen.html` (numbers from the pilot's real flights).
+
 ## Decisions that are easy to get wrong
 
 - **Internal altitude is always feet.** The sensor's unit is detected once

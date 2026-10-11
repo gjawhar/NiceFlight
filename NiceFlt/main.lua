@@ -77,7 +77,10 @@ local function widgetConfigure(widget)
 end
 
 local function widgetMenu(widget)
-  return { { "Nice Flight! settings", function() widgetConfigure(widget) end } }
+  return {
+    { "Stats", function() if widget and widget.app then widget.app.open("stats"); lcd.invalidate() end end },
+    { "Nice Flight! settings", function() widgetConfigure(widget) end },
+  }
 end
 
 -- No `configure` entry on purpose (pilot feedback #1): Ethos opens a widget's

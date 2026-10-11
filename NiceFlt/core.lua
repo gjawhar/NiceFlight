@@ -9,7 +9,7 @@
 -- is CPU time (useless); pcall every Ethos call that can be missing.
 
 local core = {}
-core.VERSION = "1.0.1"
+core.VERSION = "1.1.0"
 
 local FT_PER_M = 3.28084
 
@@ -25,6 +25,7 @@ local GROUND_HOLD_SEC     = 20
 local LOST_LOW_SEC        = 30    -- link gone this long with the plane last seen low: it landed
 local LOST_ANY_SEC        = 180   -- link gone this long at any height: stop the clock where it was last seen
 local MIN_THROW_FT        = 25    -- a "flight" that never got this high is a fumble, not a throw
+local STATS_MIN_THROWS    = 5     -- fewer throws than this: the plane's percentages are noise, greyed
 local MAX_SAMPLES         = 3600
 local FLIGHT_CAP          = 5000
 local HISTORY_CAP         = 200
@@ -757,14 +758,36 @@ local function alertsOn() return S.cfg and S.cfg.alerts == 1 end
 
 -- ---------------------------------------------------------------- today / history
 
+-- A flight found lift when its max is at least one climb size (CFG, display
+-- units) above its launch height. Judged from the stored launch and max, so
+-- the Stats screen and today's tally follow the current climb setting.
+local function isThermal(launchFt, maxFt)
+  return (maxFt or 0) - (launchFt or 0) >= ((S.cfg and S.cfg.climb) or L().climb) * L().k
+end
+core.isThermal = isThermal
+
 local function today()
   local key = dayKey(os.time())
   if not S.today or S.today.key ~= key then
-    S.today = { key = key, throws = 0, nice = 0, bestAlt = nil, bestDur = nil }
+    S.today = { key = key, throws = 0, nice = 0, bestAlt = nil, bestDur = nil,
+                launchSum = 0, durSum = 0, thermals = 0 }
   end
   return S.today
 end
 core.today = today
+
+-- today's tally, one flight at a time (loadFlights at boot, closeFlight after)
+local function tallyToday(t, launch, max, dur, nice)
+  t.throws = t.throws + 1
+  t.launchSum = t.launchSum + (launch or 0)
+  t.durSum = t.durSum + (dur or 0)
+  if isThermal(launch, max) then t.thermals = t.thermals + 1 end
+  if nice then
+    t.nice = t.nice + 1
+    if not t.bestAlt or max > t.bestAlt then t.bestAlt = max end
+    if not t.bestDur or dur > t.bestDur then t.bestDur = dur end
+  end
+end
 
 local function parseBadges(str)
   local out = {}
@@ -817,14 +840,7 @@ local function loadFlights()
   local t = today()
   for i = 1, #rows do
     local f = flightFromRow(rows[i])
-    if dayKey(f.ts) == t.key and not f.seed then
-      t.throws = t.throws + 1
-      if f.nice then
-        t.nice = t.nice + 1
-        if not t.bestAlt or f.max > t.bestAlt then t.bestAlt = f.max end
-        if not t.bestDur or f.dur > t.bestDur then t.bestDur = f.dur end
-      end
-    end
+    if dayKey(f.ts) == t.key and not f.seed then tallyToday(t, f.launch, f.max, f.dur, f.nice) end
   end
   -- newest first by TIME, not file order (sample rows are appended after
   -- real ones but dated earlier)
@@ -837,6 +853,7 @@ local function loadFlights()
   table.sort(nice, function(a, b) return a.ts > b.ts end)
   for i = 1, math.min(#nice, HISTORY_CAP) do S.history[i] = nice[i] end
   S.last = latest
+  S.dataRev = (S.dataRev or 0) + 1                 -- Stats recomputes on its next open
 end
 
 function core.history() return S.history end
@@ -927,12 +944,9 @@ local function closeFlight(reason, endT)
   local items = badgeItems(a)
 
   local t = today()
-  t.throws = t.throws + 1
   local nice = (F.maxAlt / l.k >= S.cfg.niceHeight) or (dur >= S.cfg.niceTimeMin * 60) or (#items > 0)
+  tallyToday(t, core.round(F.launchPeak), core.round(F.maxAlt), dur, nice)   -- as stored
   if nice then
-    t.nice = t.nice + 1
-    if not t.bestAlt or F.maxAlt > t.bestAlt then t.bestAlt = F.maxAlt end
-    if not t.bestDur or dur > t.bestDur then t.bestDur = dur end
     if t.nice % 5 == 0 then
       items[#items + 1] = { key = "hat.rep", fam = "hat", kind = "rep", val = t.nice / 5,
                             exact = t.nice / 5, extra = "" }
@@ -956,6 +970,7 @@ local function closeFlight(reason, endT)
     core.round(F.maxAlt), core.round(F.launchPeak), dur, #gains, tostring(nice), #items, reason))
 
   S.last = flight
+  S.dataRev = (S.dataRev or 0) + 1
   if nice then
     table.insert(S.history, 1, flight)
     if #S.history > HISTORY_CAP then table.remove(S.history) end
@@ -1156,6 +1171,101 @@ end
 -- One entry per badge family for the Badges screen.
 local FAMILIES = { "peak", "dur", "yoyo", "reb", "save", "hat", "rech", "rect" }
 core.FAMILIES = FAMILIES
+
+-- ---------------------------------------------------------------- stats
+
+-- All-time numbers per plane for the Stats screen, read straight from
+-- flights.csv and badges.csv: throws, nice %, average launch, average air
+-- time, thermal hits (see isThermal) and the average top of those flights,
+-- plus one badge pill per family showing that plane's best. Altitudes come
+-- back in feet; the screen converts. Cached until a flight lands or the
+-- settings that shape it change.
+local function statsBadgeLabel(it)
+  if it.fam == "rech" then return string.format("Record %d %s", it.exact, core.unit()) end
+  if it.fam == "rect" then return "Record " .. core.fmtTime(it.exact) end
+  return core.badgeLabel(it)
+end
+
+local function planeBadges()
+  local per = {}                    -- model -> { n = rows, fams = { fam -> best item } }
+  for _, r in ipairs(readRows("badges")) do
+    if r[1] == S.cfg.units then
+      local fam, kind, model = r[2], r[3], r[7] or ""
+      local val, exact = tonumber(r[4]) or 0, tonumber(r[5]) or 0
+      local pb = per[model]
+      if not pb then pb = { n = 0, fams = {} }; per[model] = pb end
+      pb.n = pb.n + 1
+      local cur = pb.fams[fam]
+      if fam == "hat" then
+        if not cur then cur = { fam = fam, kind = kind, val = 0, exact = 0, extra = "" }; pb.fams[fam] = cur end
+        cur.val = cur.val + 1; cur.exact = cur.val
+      else
+        local better
+        if not cur then better = true
+        elseif fam == "save" then better = exact < cur.exact
+        elseif fam == "rech" or fam == "rect" then better = exact > cur.exact
+        else better = val > cur.val or (val == cur.val and exact > cur.exact) end
+        if better then pb.fams[fam] = { fam = fam, kind = kind, val = val, exact = exact, extra = r[8] or "" } end
+      end
+    end
+  end
+  for _, pb in pairs(per) do
+    pb.items = {}
+    for _, fam in ipairs(FAMILIES) do
+      local it = pb.fams[fam]
+      if it then it.label = statsBadgeLabel(it); pb.items[#pb.items + 1] = it end
+    end
+  end
+  return per
+end
+
+function core.stats()
+  local key = tostring(S.dataRev or 0) .. "/" .. tostring(S.cfg.units) .. "/" .. tostring(S.cfg.climb)
+  if S.statsCache and S.statsCache.key == key then return S.statsCache end
+  local acc, order = {}, {}
+  local function bucket(model)
+    local b = acc[model]
+    if not b then
+      b = { model = model, throws = 0, nice = 0, launchSum = 0, durSum = 0, thermals = 0, topSum = 0 }
+      acc[model] = b; order[#order + 1] = b
+    end
+    return b
+  end
+  local function add(b, f)
+    b.throws = b.throws + 1
+    if f.nice then b.nice = b.nice + 1 end
+    b.launchSum, b.durSum = b.launchSum + f.launch, b.durSum + f.dur
+    if isThermal(f.launch, f.max) then b.thermals = b.thermals + 1; b.topSum = b.topSum + f.max end
+  end
+  local all = { model = "All planes", throws = 0, nice = 0, launchSum = 0, durSum = 0, thermals = 0, topSum = 0 }
+  for _, r in ipairs(readRows("flights")) do
+    local f = flightFromRow(r)
+    add(bucket(f.model), f); add(all, f)
+  end
+  local function finish(b)
+    local n = b.throws
+    b.nicePct = (n > 0) and core.round(100 * b.nice / n) or 0
+    b.thermalPct = (n > 0) and core.round(100 * b.thermals / n) or 0
+    b.avgLaunch = (n > 0) and b.launchSum / n or nil
+    b.avgDur = (n > 0) and b.durSum / n or nil
+    b.avgTop = (b.thermals > 0) and b.topSum / b.thermals or nil
+    b.thin = n < STATS_MIN_THROWS
+    return b
+  end
+  table.sort(order, function(a, b) if a.throws ~= b.throws then return a.throws > b.throws end return a.model < b.model end)
+  local per = planeBadges()
+  local nBadges = 0
+  for _, b in ipairs(order) do
+    finish(b)
+    local pb = per[b.model]
+    b.badges, b.nBadges = (pb and pb.items) or {}, (pb and pb.n) or 0
+    nBadges = nBadges + b.nBadges
+  end
+  finish(all)
+  S.statsCache = { key = key, planes = order, all = (#order >= 2) and all or nil,
+                   throws = all.throws, nBadges = nBadges }
+  return S.statsCache
+end
 
 function core.familyView(fam)
   local l, B, u = L(), S.B, core.unit()

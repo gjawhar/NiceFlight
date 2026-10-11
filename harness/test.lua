@@ -415,10 +415,78 @@ check(#core.history() == 3, "sample data shows in history")
 check(core.recordHeight() == 1340, "sample record 1340")
 app.pressKey(3); paint(); boundsCheck("badges (sample data)")
 app.event(KEY_RTN_FIRST, nil, nil, EVT_KEY)
+
+-- ---------------------------------------------------------------- stats
+
+print("\n-- stats screen (sample data)")
+do
+  local st = core.stats()
+  check(#st.planes == 2 and st.planes[1].model == "Bull Nose" and st.planes[2].model == "Whip Tail", "planes sorted by throws")
+  local bn, wt = st.planes[1], st.planes[2]
+  check(bn.throws == 2 and bn.nice == 2 and bn.nicePct == 100 and bn.thin, "Bull Nose: 2 throws, both nice, greyed under 5")
+  check(bn.thermals == 2 and math.abs(bn.avgTop - 423.5) < 0.01 and bn.thermalPct == 100, "thermal hits judged from launch and max; avg top 423.5")
+  check(math.abs(bn.avgLaunch - 167.5) < 0.01 and math.abs(bn.avgDur - 542) < 0.01, "average launch and air time")
+  check(st.all and st.all.throws == 3 and st.all.thermals == 3, "All planes row with two planes")
+  check(wt.nBadges == 15 and #wt.badges == 6 and bn.nBadges == 5 and #bn.badges == 4, "badge rows counted, one pill per family")
+  local lab = {}
+  for _, it in ipairs(wt.badges) do lab[it.fam] = it.label end
+  check(lab.peak == "Peak 1300 ft" and lab.dur == "16 min" and lab.save == "Save from 52 ft", "pills show the plane's best (" .. tostring(lab.peak) .. ", " .. tostring(lab.dur) .. ")")
+  check(lab.rech == "Record 1340 ft" and lab.rect == "Record 16:05", "record pills say Record, not New record")
+  check(core.stats() == st, "stats cached between calls")
+  core.S.cfg.climb = 400
+  check(core.stats().planes[1].thermals == 0 and core.stats().planes[2].thermals == 1, "climb size 400: only the 1340 flight counts as a thermal hit")
+  core.S.cfg.climb = 50
+
+  tick()
+  check(sawText("STATS") and sawText("HISTORY"), "idle key row has STATS on FS1")
+  app.pressKey(1); paint()
+  check(app.V.screen == "stats" and app.V.statsView == "flying", "FS1 opens Stats on the Flying view")
+  check(sawText("PLANE") and sawText("THERMAL") and sawText("Bull Nose") and sawText("All planes"), "flying table drawn")
+  check(sawText("100%") and sawText("424 ft") and sawText("9:02"), "table values (424 ft avg top, 9:02 avg air)")
+  check(not sawText("MORE"), "no MORE key when every plane fits")
+  boundsCheck("stats flying")
+  app.pressKey(3); paint()
+  check(app.V.statsView == "badges", "BADGES key on Stats switches view, not screen")
+  check(sawText("Peak 1300 ft") and sawText("Record 16:05") and sawText("15 badges  -  1 throw"), "badge pills per plane")
+  boundsCheck("stats badges")
+  app.pressKey(2); paint()
+  check(app.V.statsView == "flying", "FLYING key switches back")
+  app.event(KEY_RTN_FIRST, nil, nil, EVT_KEY); paint()
+  check(app.V.screen == "auto", "RTN leaves Stats")
+  -- rotary reaches FS1 on the idle screen too
+  app.V.focus = 2
+  app.event(KEY_ROTARY_LEFT, 1, nil, EVT_KEY)
+  check(app.V.focus == 1, "rotary focus reaches the STATS key")
+  app.event(KEY_ENTER_BREAK, nil, nil, EVT_KEY); paint()
+  check(app.V.screen == "stats", "ENTER on the focused STATS key opens it")
+  app.event(KEY_RTN_FIRST, nil, nil, EVT_KEY)
+end
 fly({ { 0, 0 }, { 4, 170 }, { 40, 450 }, { 80, 30 }, { 84, 4 } })
 check(#core.history() == 1, "first genuine flight purges the samples")
 check(core.recordHeight() == 450 and badgeRow("peak", "first", 400), "and is judged against real badges only")
 core.dismissRecap()
+
+print("\n-- stats from a controlled set of flights")
+do
+  core.erase(); core.dismissRecap()
+  fly({ { 0, 0 }, { 4, 100 }, { 40, 100 }, { 60, 10 }, { 64, 4 } })          -- flat: no lift
+  fly({ { 0, 0 }, { 4, 100 }, { 60, 300 }, { 120, 10 }, { 124, 4 } })        -- thermal to 300, nice
+  core.dismissRecap()
+  fly({ { 0, 0 }, { 4, 100 }, { 40, 140 }, { 80, 10 }, { 84, 4 } })          -- 39 ft gain: under the climb size
+  local st = core.stats()
+  local b = st.planes[1]
+  check(#st.planes == 1 and st.all == nil, "one plane: no All row")
+  check(b.throws == 3 and b.nice == 1 and b.nicePct == 33, "3 throws, 1 nice = 33%")
+  check(b.thermals == 1 and b.thermalPct == 33 and math.abs(b.avgTop - 300) < 0.01, "one thermal hit (the 300 ft flight), avg top 300")
+  check(b.avgLaunch >= 98 and b.avgLaunch <= 106, "avg launch about 100 (" .. tostring(b.avgLaunch) .. ")")
+  local t = core.today()
+  check(t.throws == 3 and t.thermals == 1 and t.launchSum / t.throws == b.avgLaunch, "today's tally carries the same measures")
+  tick()
+  check(sawText("Today") and sawText("1 thermal"), "idle screen: today's line with the thermal count")
+  boundsCheck("idle with today's line")
+  fly({ { 0, 0 }, { 4, 170 }, { 40, 450 }, { 80, 30 }, { 84, 4 } })          -- the 450 record the metric section expects
+  core.dismissRecap()
+end
 
 -- ---------------------------------------------------------------- metric
 
@@ -447,6 +515,10 @@ app.pressKey(2); paint(); boundsCheck("history 800x480")
 app.event(KEY_ENTER_BREAK, nil, nil, EVT_KEY); paint(); boundsCheck("recap 800x480")
 app.event(KEY_RTN_FIRST, nil, nil, EVT_KEY); app.event(KEY_RTN_FIRST, nil, nil, EVT_KEY)
 app.pressKey(3); paint(); boundsCheck("badges 800x480")
+app.event(KEY_RTN_FIRST, nil, nil, EVT_KEY)
+app.pressKey(1); paint(); boundsCheck("stats flying 800x480")
+app.pressKey(3); paint(); boundsCheck("stats badges 800x480")
+app.event(KEY_RTN_FIRST, nil, nil, EVT_KEY)
 
 -- ---------------------------------------------------------------- link lost for good
 
@@ -592,8 +664,13 @@ check(not sawText("error"), "paint shows no error text")
 check(reg.event(wdg, EVT_KEY, KEY_ROTARY_RIGHT, 1, nil) == true, "event handles the rotary")
 check(reg.configure == nil, "no configure callback: adding the widget lands on Main, not on CFG (feedback #1)")
 local menu0 = reg.menu(wdg)
+check(menu0[1][1] == "Stats" and #menu0 == 2, "long-press menu: Stats, then settings")
+menu0[1][2]()
+check(wdg.app.V.screen == "stats", "menu Stats entry opens the Stats screen")
+wdg.app.pressKey(1)
+check(wdg.app.V.screen == "auto", "BACK leaves Stats")
 formFields = {}
-menu0[1][2]()                                  -- the long-press menu's settings entry
+menu0[2][2]()                                  -- the long-press menu's settings entry
 check(#formFields >= 10, "settings form built from the menu (" .. #formFields .. " fields)")
 local formOk = true
 for _, f in ipairs(formFields) do
@@ -605,7 +682,7 @@ end
 check(formOk, "every settings getter runs")
 check(not core.status() or not core.status():find("error", 1, true), "no config error on the status line")
 local menu = reg.menu(wdg)
-check(menu and menu[1] and menu[1][1] == "Nice Flight! settings", "menu entry")
+check(menu and menu[2] and menu[2][1] == "Nice Flight! settings", "menu entry")
 -- FS keys follow VISIBILITY, not focus (Ethos drops focus on RTN)
 do
   local focus = true

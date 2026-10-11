@@ -35,9 +35,16 @@ RX voltage sensor; on a radio it shows the receiver pack voltage.
 |---|---|
 | Live | flight timer and max side by side, current altitude, launch height, time above launch, climbs, RX voltage, and the latest badge earned in the air |
 | Recap | the numbers, the graph, and every badge the flight earned |
-| Idle | the last throw, today's nice flights of throws, best today |
+| Idle | the last throw, today's nice flights of throws, best today, and today's average launch, thermal count and average air time |
 | History | every nice flight, newest first, all planes |
 | Badges | eight families with definitions, ladders, tallies and bests |
+| Stats | all-time numbers per plane: throws, nice %, average launch, average air time, how often you find a thermal and how high it takes you; a second view shows each plane's best badge per family |
+
+A **thermal hit** is a flight whose max altitude is at least one climb size
+(CFG, 50 ft by default) above its launch height; "Top" is the average max of
+those flights. Planes with fewer than five throws are greyed, since their
+percentages mean little yet. Stats is on FS1 from the idle screen and in the
+long-press menu.
 
 Keys follow FS1 to FS4 above the screen. Touch radios can tap the key labels.
 

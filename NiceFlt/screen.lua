@@ -1,12 +1,12 @@
--- Nice Flight! screens: Live, Idle, Recap, History, Badges, plus keys, focus,
--- rotary and touch. What shows by default follows core.state() (live /
--- recap / idle); History and Badges are visited from the key row and a
--- launch always snaps back to Live.
+-- Nice Flight! screens: Live, Idle, Recap, History, Badges, Stats, plus keys,
+-- focus, rotary and touch. What shows by default follows core.state() (live /
+-- recap / idle); History, Badges and Stats are visited from the key row and
+-- a launch always snaps back to Live.
 
 local core, draw, config = ...
 local screen = {}
 
-local AUTO, HISTORY, HISTRECAP, BADGES = "auto", "history", "histrecap", "badges"
+local AUTO, HISTORY, HISTRECAP, BADGES, STATS = "auto", "history", "histrecap", "badges", "stats"
 local HISTORY_ROWS = 8
 
 -- Touch: same rules as Throw Trainer / DLGPoker. A tap arrives as
@@ -43,7 +43,8 @@ screen.confirmErase = confirmErase
 function screen.new(opts)
   opts = opts or {}
   local V = { screen = AUTO, focus = 2, badgeSel = 1, histSel = 1, histTop = 1, famSel = 1,
-              histFlight = nil, inForm = false, keyRects = {}, dirty = true, lastState = nil }
+              histFlight = nil, inForm = false, keyRects = {}, dirty = true, lastState = nil,
+              statsView = "flying", statsTop = 1, statsFit = 1 }
   local self = { V = V }
 
   function self.fits(w, h) return (w or 0) >= 300 and (h or 0) >= 200 end
@@ -63,9 +64,14 @@ function screen.new(opts)
     if V.screen == HISTORY then return { "BACK", "OPEN", "UP", "DOWN" } end
     if V.screen == HISTRECAP then return { "BACK", nil, nil, nil } end
     if V.screen == BADGES then return { "BACK", nil, "PREV", "NEXT" } end
+    if V.screen == STATS then
+      -- MORE pages through planes that did not fit, wrapping to the top
+      local n = (V.statsView == "flying") and #core.stats().planes or #core.stats().planes
+      return { "BACK", "FLYING", "BADGES", (n > V.statsFit) and "MORE" or nil }
+    end
     if st == "live" then return { nil, nil, nil, nil } end
     if st == "recap" then return { "DISMISS", "HISTORY", "BADGES", "CFG" } end
-    return { nil, "HISTORY", "BADGES", "CFG" }
+    return { "STATS", "HISTORY", "BADGES", "CFG" }
   end
 
   local function openConfig()
@@ -88,10 +94,31 @@ function screen.new(opts)
     V.famSel = ((V.famSel - 1 + d) % n) + 1
   end
 
+  local function moveStats(d)
+    local n = #core.stats().planes
+    if n <= V.statsFit then V.statsTop = 1 return end
+    V.statsTop = math.max(1, math.min(n - V.statsFit + 1, V.statsTop + d))
+  end
+
+  local function openStats(view)
+    V.screen = STATS
+    V.statsView = view or V.statsView or "flying"
+    V.statsTop = 1
+    V.dirty = true
+    lcd.invalidate()
+  end
+  function self.open(name) if name == "stats" then openStats("flying") end end
+
   local function activate(i)
     local key = keysFor()[i]
     if not key then return end
     if key == "DISMISS" then core.dismissRecap()
+    elseif key == "STATS" then openStats("flying")
+    elseif key == "FLYING" then openStats("flying")
+    elseif key == "BADGES" and V.screen == STATS then openStats("badges")
+    elseif key == "MORE" then
+      local n = #core.stats().planes
+      if V.statsTop + V.statsFit > n then V.statsTop = 1 else V.statsTop = V.statsTop + V.statsFit end
     elseif key == "HISTORY" then V.screen = HISTORY; V.histSel, V.histTop = 1, 1
     elseif key == "BADGES" then V.screen = BADGES
     elseif key == "CFG" then openConfig()
@@ -236,15 +263,31 @@ function screen.new(opts)
       { "Launch", last and core.fmtAlt(last.launch) or "--", u },
       { "Nice flights today", tostring(t.nice), string.format("of %d throw%s", t.throws, t.throws == 1 and "" or "s") },
     }
-    local y, x1 = bigLayout(w, h, m, p, top, cells, m.th * 2 + 6)
     local lineH = fontH("std")
-    if y + lineH * 2 > h - 2 then y = h - 2 - lineH * 2 end
-    draw.font("std")
+    -- two text lines under the numbers (best today, today's averages) plus
+    -- the status line: reserve them so the big digits shrink, not the text
+    local y, x1 = bigLayout(w, h, m, p, top, cells, lineH * 2 + m.th + 6)
+    if y + lineH * 2 > h - m.th - 4 then y = h - m.th - 4 - lineH * 2 end
+    local function line(yy, label, text)
+      draw.font("std"); lcd.color(p.dim); draw.textAt(x1, yy, label)
+      local tw = lcd.getTextSize(label)
+      lcd.color(p.text); draw.textAt(x1 + tw + 6, yy, text, w - x1 * 2 - tw - 6)
+    end
     if t.bestAlt then
-      lcd.color(p.dim); draw.textAt(x1, y, "Best today")
-      local tw = lcd.getTextSize("Best today")
-      lcd.color(p.text)
-      draw.textAt(x1 + tw + 6, y, string.format("%s %s  -  %s", core.fmtAlt(t.bestAlt), u, core.fmtTime(t.bestDur)))
+      line(y, "Best today", string.format("%s %s  -  %s", core.fmtAlt(t.bestAlt), u, core.fmtTime(t.bestDur)))
+    end
+    -- the same measures as the Stats table, for today, so a session can be
+    -- read against the all-time numbers
+    if t.throws > 0 then
+      local th = string.format("%d thermal%s", t.thermals, t.thermals == 1 and "" or "s")
+      local la, ai = core.fmtAlt(t.launchSum / t.throws) .. " " .. u, core.fmtTime(core.round(t.durSum / t.throws))
+      local long = string.format("avg launch %s - %s - air %s", la, th, ai)
+      draw.font("std")
+      local room = w - x1 * 2 - lcd.getTextSize("Today") - 6
+      if lcd.getTextSize(long) > room then long = string.format("launch %s - %s - air %s", la, th, ai) end
+      line(y + lineH, "Today", long)
+    else
+      line(y + lineH, "Today", "no throws yet")
     end
     -- status text lives on this screen only
     local status = core.status()
@@ -487,6 +530,152 @@ function screen.new(opts)
     end
   end
 
+  -- ------------------------------------------------------------ stats
+
+  -- Header shared by both views: title, then what the numbers cover.
+  local function statsHeader(w, m, p, top, st)
+    local x1 = m.pad * 3
+    local y = top + 2
+    draw.font("mid"); lcd.color(p.text)
+    draw.textAt(x1, y, "Stats")
+    local tw, th = lcd.getTextSize("Stats")
+    draw.font("small"); lcd.color(p.dim)
+    local _, sh = lcd.getTextSize("8")
+    local sub
+    if V.statsView == "flying" then
+      sub = string.format("all time - %d throw%s - thermal = +%d %s",
+        st.throws, st.throws == 1 and "" or "s", core.S.cfg.climb, core.unit())
+    else
+      sub = string.format("all time - %d badge%s", st.nBadges, st.nBadges == 1 and "" or "s")
+    end
+    draw.textAt(x1 + tw + 10, y + (th - sh) - 2, sub, w - x1 * 2 - tw - 10)
+    return y + th + 4, x1
+  end
+
+  local function paintStatsFlying(w, h, m, p, top, st)
+    local y, x1 = statsHeader(w, m, p, top, st)
+    local u = core.unit()
+    -- plane name left; six numeric columns right-aligned at these fractions
+    -- headers stay short: the tiny font still needs about 9 px per letter
+    local heads = { "Plane", "Throws", "Nice", "Launch", "Air", "Thermal", "Top" }
+    local rights = { 0, 0.33, 0.44, 0.58, 0.70, 0.84, 1.0 }
+    local function rx(i) return x1 + math.floor((w - x1 * 2) * rights[i]) end
+    draw.font("tiny"); lcd.color(p.dim)
+    draw.textAt(x1, y, string.upper(heads[1]))
+    for i = 2, #heads do draw.textRight(rx(i), y, string.upper(heads[i])) end
+    local _, hh = lcd.getTextSize("8")
+    y = y + hh + 2
+    lcd.color(p.line); lcd.drawLine(x1, y, w - x1, y)
+    local rowH = m.th + 6
+    local planes = st.planes
+    if #planes == 0 then
+      draw.font("small"); lcd.color(p.dim)
+      draw.textAt(x1, y + 8, "No flights yet.")
+      V.statsFit = 1
+      return
+    end
+    local bottom = h - m.pad - 2
+    if st.all then bottom = bottom - rowH - 3 end        -- the All row keeps the last slot
+    local fit = math.max(1, math.floor((bottom - y - 1) / rowH))
+    V.statsFit = fit
+    if V.statsTop > math.max(1, #planes - fit + 1) then V.statsTop = math.max(1, #planes - fit + 1) end
+    local function row(ry, b, color)
+      draw.font("small"); lcd.color(color)
+      draw.textAt(x1, ry + 3, b.model, rx(2) - x1 - lcd.getTextSize("8888") - 6)
+      draw.textRight(rx(2), ry + 3, tostring(b.throws))
+      draw.textRight(rx(3), ry + 3, b.nicePct .. "%")
+      draw.textRight(rx(4), ry + 3, b.avgLaunch and (core.fmtAlt(b.avgLaunch) .. " " .. u) or "--")
+      draw.textRight(rx(5), ry + 3, b.avgDur and core.fmtTime(core.round(b.avgDur)) or "--")
+      draw.textRight(rx(6), ry + 3, b.thermalPct .. "%")
+      draw.textRight(rx(7), ry + 3, b.avgTop and (core.fmtAlt(b.avgTop) .. " " .. u) or "--")
+    end
+    local ry = y + 1
+    for i = V.statsTop, math.min(#planes, V.statsTop + fit - 1) do
+      local b = planes[i]
+      row(ry, b, b.thin and p.grey or p.text)
+      ry = ry + rowH
+      lcd.color(p.line); lcd.drawLine(x1, ry - 1, w - x1, ry - 1)
+    end
+    if st.all then
+      local ay = h - m.pad - 2 - rowH
+      lcd.color(p.text); lcd.drawLine(x1, ay - 1, w - x1, ay - 1)
+      row(ay, st.all, p.text)
+    end
+  end
+
+  local function paintStatsBadges(w, h, m, p, top, st)
+    local y, x1 = statsHeader(w, m, p, top, st)
+    local planes = st.planes
+    if #planes == 0 then
+      draw.font("small"); lcd.color(p.dim)
+      draw.textAt(x1, y + 8, "No flights yet.")
+      V.statsFit = 1
+      return
+    end
+    local maxW = w - x1 * 2
+    local _, pillH = draw.pill(0, 0, "peak", "8", "normal", "small", p, true)
+    local nameH, tinyH = fontH("small"), fontH("tiny")
+    -- a plane block: name line, then up to two rows of pills (or one "none" line)
+    local function blockH(b)
+      if #b.badges == 0 then return nameH + 2 + tinyH + 6 end
+      local cx, rows = x1, 1
+      for _, it in ipairs(b.badges) do
+        local pw = draw.pill(0, 0, it.fam, it.label, "normal", "small", p, true)
+        if cx + pw > x1 + maxW and cx > x1 then rows = rows + 1; cx = x1 end
+        cx = cx + pw + 5
+      end
+      return nameH + 2 + math.min(rows, 2) * (pillH + 4) + 6
+    end
+    -- how many planes fit from statsTop
+    local fit, used = 0, 0
+    for i = V.statsTop, #planes do
+      local bh = blockH(planes[i])
+      if y + used + bh > h - m.pad then break end
+      used, fit = used + bh, fit + 1
+    end
+    if fit == 0 then fit = 1 end
+    V.statsFit = fit
+    for i = V.statsTop, math.min(#planes, V.statsTop + fit - 1) do
+      local b = planes[i]
+      draw.font("small"); lcd.color(b.thin and p.grey or p.text)
+      draw.textAt(x1, y, b.model, math.floor(maxW * 0.5))
+      local nw = lcd.getTextSize(b.model)
+      draw.font("tiny"); lcd.color(p.dim)
+      draw.textAt(x1 + nw + 8, y + (nameH - tinyH) - 1,
+        string.format("%d badge%s  -  %d throw%s", b.nBadges, b.nBadges == 1 and "" or "s", b.throws, b.throws == 1 and "" or "s"))
+      y = y + nameH + 2
+      if #b.badges == 0 then
+        draw.font("tiny"); lcd.color(p.grey)
+        draw.textAt(x1, y, "no badges yet")
+        y = y + tinyH + 6
+      else
+        local cx, cy, rows = x1, y, 1
+        for j, it in ipairs(b.badges) do
+          local style = (it.fam == "rech" or it.fam == "rect") and "rec" or "normal"
+          local pw = draw.pill(0, 0, it.fam, it.label, style, "small", p, true)
+          if cx + pw > x1 + maxW and cx > x1 then
+            rows = rows + 1
+            if rows > 2 then
+              draw.font("small"); lcd.color(p.dim)
+              draw.textAt(cx, cy + 3, "+" .. (#b.badges - j + 1))
+              break
+            end
+            cx, cy = x1, cy + pillH + 4
+          end
+          draw.pill(cx, cy, it.fam, it.label, style, "small", p)
+          cx = cx + pw + 5
+        end
+        y = cy + pillH + 6
+      end
+    end
+  end
+
+  local function paintStats(w, h, m, p, top)
+    local st = core.stats()
+    if V.statsView == "badges" then paintStatsBadges(w, h, m, p, top, st)
+    else paintStatsFlying(w, h, m, p, top, st) end
+  end
+
   -- ------------------------------------------------------------ paint
 
   function self.paint(w, h)
@@ -520,10 +709,18 @@ function screen.new(opts)
     end
     draw.clear(w, h, p)
     local live = true        -- the FS keys work whenever this page is showing (see self.visible)
+    -- Stats first: the table decides how many planes fit, and the MORE key
+    -- in the row above depends on that
+    if V.screen == STATS then paintStats(w, h, m, p, draw.keyRowH(m)) end
     local keys, items = keysFor(), {}
     local LABEL = { UP = "UP", DOWN = "DOWN", PREV = "PREV", NEXT = "NEXT" }
     for i = 1, 4 do
-      if keys[i] then items[i] = { label = LABEL[keys[i]] or keys[i], focused = (V.focus == i) and V.screen == AUTO and st == "idle" } end
+      if keys[i] then
+        local focused = (V.focus == i) and V.screen == AUTO and st == "idle"
+        -- on Stats the current view's key is drawn solid
+        if V.screen == STATS then focused = (keys[i] == "FLYING" and V.statsView == "flying") or (keys[i] == "BADGES" and V.statsView == "badges") end
+        items[i] = { label = LABEL[keys[i]] or keys[i], focused = focused }
+      end
     end
     local keyH
     V.keyRects, keyH = draw.keyRow(w, m, p, live, items, isTouchCapable())
@@ -532,6 +729,7 @@ function screen.new(opts)
     if V.screen == HISTORY then paintHistory(w, h, m, p, keyH)
     elseif V.screen == HISTRECAP and V.histFlight then paintRecap(w, h, m, p, keyH, V.histFlight)
     elseif V.screen == BADGES then paintBadges(w, h, m, p, keyH)
+    elseif V.screen == STATS then -- painted above the key row
     elseif st == "live" then paintLive(w, h, m, p, keyH)
     elseif st == "recap" then paintRecap(w, h, m, p, keyH, core.S.recap)
     else paintIdle(w, h, m, p, keyH) end
@@ -593,12 +791,13 @@ function screen.new(opts)
       local d = step(value, x)
       if V.screen == HISTORY then moveHist(d)
       elseif V.screen == BADGES then moveFam(d)
+      elseif V.screen == STATS then moveStats(d)
       elseif V.screen == HISTRECAP or (V.screen == AUTO and st == "recap") then
         local f = (V.screen == HISTRECAP) and V.histFlight or core.S.recap
         local n = f and #core.displayBadges(core.parseBadges(f.badges)) or 0
         if n > 0 then V.badgeSel = ((V.badgeSel - 1 + d) % n) + 1 end
       elseif st == "idle" then
-        V.focus = ((V.focus - 2 + d) % 3) + 2          -- keys 2..4
+        V.focus = ((V.focus - 1 + d) % 4) + 1          -- keys 1..4
       end
       V.dirty = true
       lcd.invalidate()

@@ -204,8 +204,10 @@ end
 -- FS1-FS4 aligned key row pinned to the top of the canvas (the physical
 -- buttons sit above the screen on the X14). items[i] = { label=, focused= }
 -- or nil for an empty slot. Returns tap rects (when live) and the row height.
+function draw.keyRowH(m) return m.th + 4 + m.pad * 2 end
+
 function draw.keyRow(w, m, p, live, items, touch)
-  local keyRowH = m.th + 4 + m.pad * 2
+  local keyRowH = draw.keyRowH(m)
   local kw = math.floor(w / 4)
   local rects = {}
   for i = 1, 4 do

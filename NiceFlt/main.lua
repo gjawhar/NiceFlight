@@ -42,11 +42,16 @@ local function widgetWakeup(widget)
     local ok3, err3 = pcall(widget.app.pressKey, fs)
     if not ok3 then core.setStatus("FS error: " .. tostring(err3)) end
   end
+  pcall(core.timing)
 
   if widget and widget.app then
     -- Reading a list is idle time to Ethos, which drops focus after ten
-    -- seconds; hold it on the scrolling screens so the wheel keeps working
-    if widget.app.scrolls() and lcd.hasFocus and lcd.resetFocusTimeout and lcd.hasFocus() then
+    -- seconds; hold it on the scrolling screens so the wheel keeps working.
+    -- Once every 5 s is plenty for a 10 s timeout.
+    local now = os.time()
+    if widget.app.scrolls() and lcd.hasFocus and lcd.resetFocusTimeout and lcd.hasFocus()
+       and (not widget.focusHeldAt or now - widget.focusHeldAt >= 5) then
+      widget.focusHeldAt = now
       pcall(lcd.resetFocusTimeout)
     end
     local ok4, need = pcall(widget.app.needsPaint)

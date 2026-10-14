@@ -9,7 +9,7 @@
 -- is CPU time (useless); pcall every Ethos call that can be missing.
 
 local core = {}
-core.VERSION = "1.1.0"
+core.VERSION = "1.1.1"
 
 local FT_PER_M = 3.28084
 
@@ -417,15 +417,44 @@ function core.rxBatt()
 end
 
 function core.pollFS()
+  local hit
   for i = 1, 4 do
     local v = srcValue(S.fs[i])
     if type(v) == "number" then
       local prev = S.prevFS[i]
       S.prevFS[i] = v
-      if prev ~= nil and prev <= 0 and v > 0 then return i end
+      if prev ~= nil and prev <= 0 and v > 0 then hit = hit or i; S.fsHeld = { key = i, wakeups = 1 }
+      elseif v > 0 and S.fsHeld and S.fsHeld.key == i then S.fsHeld.wakeups = S.fsHeld.wakeups + 1
+      elseif v <= 0 and S.fsHeld and S.fsHeld.key == i then
+        -- how long the pilot held the key, in wakeups: with the wakeup
+        -- rate logged by core.timing this says whether short presses can
+        -- be seen at all (pilot: "FS keys need a half-second hold", 1.1.0)
+        diag("fs", string.format("FS%d held %d wakeups", i, S.fsHeld.wakeups))
+        S.fsHeld = nil
+      end
     end
   end
-  return nil
+  return hit
+end
+
+-- Wakeup rate, logged once a minute as wakeups per second (min / avg /
+-- max over the minute's whole seconds). os.clock is CPU time on Ethos and
+-- os.time is whole seconds, so counting per second is the only measure.
+function core.timing()
+  local now = os.time()
+  local T = S.timing
+  if not T then T = { sec = now, n = 0, min = nil, max = 0, sum = 0, secs = 0, since = now }; S.timing = T end
+  if now == T.sec then T.n = T.n + 1 return end
+  if T.n > 0 then
+    T.secs, T.sum = T.secs + 1, T.sum + T.n
+    if not T.min or T.n < T.min then T.min = T.n end
+    if T.n > T.max then T.max = T.n end
+  end
+  T.sec, T.n = now, 1
+  if now - T.since >= 60 and T.secs > 0 then
+    diag("timing", string.format("wakeups/s min=%d avg=%d max=%d over %ds", T.min or 0, core.round(T.sum / T.secs), T.max, T.secs))
+    T.min, T.max, T.sum, T.secs, T.since = nil, 0, 0, 0, now
+  end
 end
 
 -- ---------------------------------------------------------------- climbs (zigzag)
@@ -480,7 +509,27 @@ end
 -- kind: first | rep | rec. Tallies are row counts, so nothing is ever
 -- rewritten except by purgeSeed.
 local function newBadgeState()
-  return { first = {}, tally = {}, best = {}, rec = { rech = {}, rect = {} }, hatDays = {} }
+  return { first = {}, tally = {}, best = {}, rec = { rech = {}, rect = {} }, hatDays = {}, perModel = {} }
+end
+
+-- Per plane, the best badge of each family, kept up to date as rows are
+-- applied so the Stats screen never re-reads badges.csv in a paint.
+local function notePlaneBadge(B, model, fam, kind, val, exact, extra)
+  local pb = B.perModel[model]
+  if not pb then pb = { n = 0, fams = {} }; B.perModel[model] = pb end
+  pb.n = pb.n + 1
+  local cur = pb.fams[fam]
+  if fam == "hat" then
+    if not cur then cur = { fam = fam, kind = kind, val = 0, exact = 0, extra = "" }; pb.fams[fam] = cur end
+    cur.val = cur.val + 1; cur.exact = cur.val
+  else
+    local better
+    if not cur then better = true
+    elseif fam == "save" then better = exact < cur.exact
+    elseif fam == "rech" or fam == "rect" then better = exact > cur.exact
+    else better = val > cur.val or (val == cur.val and exact > cur.exact) end
+    if better then pb.fams[fam] = { fam = fam, kind = kind, val = val, exact = exact, extra = extra } end
+  end
 end
 
 local function betterThan(fam, a, b)      -- is exact a better than exact b?
@@ -493,6 +542,7 @@ local function applyBadgeRow(B, r)
   local fam, kind = r[2], r[3]
   local val, exact, ts = tonumber(r[4]) or 0, tonumber(r[5]) or 0, tonumber(r[6]) or 0
   local model, extra = r[7] or "", r[8] or ""
+  notePlaneBadge(B, model, fam, kind, val, exact, extra)
   if kind == "first" then
     B.first[fam] = B.first[fam] or {}
     B.first[fam][val] = true
@@ -829,6 +879,32 @@ local function flightFromRow(r)
            nice = r[10] == "1", points = r[11] or "", badges = r[12] or "", seed = r[13] == "1" }
 end
 
+-- Stats accumulators (see core.stats): per-plane sums, plus every flight's
+-- model / launch / max so thermal hits can be recounted when the climb
+-- size changes without touching the file.
+local function accBucket(model)
+  local A = S.acc
+  local b = A.planes[model]
+  if not b then
+    b = { model = model, throws = 0, nice = 0, launchSum = 0, durSum = 0, thermals = 0, topSum = 0 }
+    A.planes[model] = b; A.order[#A.order + 1] = b
+  end
+  return b
+end
+
+local function accFlight(f)
+  local A = S.acc
+  local b = accBucket(f.model)
+  local launch, max = core.round(f.launch), core.round(f.max)      -- as stored in the file
+  b.throws = b.throws + 1
+  if f.nice then b.nice = b.nice + 1 end
+  b.launchSum, b.durSum = b.launchSum + launch, b.durSum + f.dur
+  local n = #A.model + 1
+  A.model[n], A.launch[n], A.max[n] = f.model, launch, max
+  if A.climb == nil then A.climb = (S.cfg and S.cfg.climb) or L().climb end
+  if isThermal(launch, max) then b.thermals = b.thermals + 1; b.topSum = b.topSum + max end
+end
+
 local function loadFlights()
   local rows = readRows("flights")
   if #rows > FLIGHT_CAP + 500 then
@@ -837,19 +913,20 @@ local function loadFlights()
     if rewrite("flights", kept) then rows = kept end
   end
   S.history, S.today, S.last = {}, nil, nil
+  S.acc = { planes = {}, order = {}, model = {}, launch = {}, max = {}, climb = nil }
   local t = today()
-  for i = 1, #rows do
-    local f = flightFromRow(rows[i])
-    if dayKey(f.ts) == t.key and not f.seed then tallyToday(t, f.launch, f.max, f.dur, f.nice) end
-  end
-  -- newest first by TIME, not file order (sample rows are appended after
-  -- real ones but dated earlier)
+  -- ONE pass: today's tally, the nice list, the latest flight and the Stats
+  -- accumulators. Boot is the only time the whole file is walked.
   local nice, latest = {}, nil
   for i = 1, #rows do
     local f = flightFromRow(rows[i])
+    if dayKey(f.ts) == t.key and not f.seed then tallyToday(t, f.launch, f.max, f.dur, f.nice) end
     if f.nice then nice[#nice + 1] = f end
     if not f.seed and (not latest or f.ts >= latest.ts) then latest = f end
+    accFlight(f)
   end
+  -- newest first by TIME, not file order (sample rows are appended after
+  -- real ones but dated earlier)
   table.sort(nice, function(a, b) return a.ts > b.ts end)
   for i = 1, math.min(#nice, HISTORY_CAP) do S.history[i] = nice[i] end
   S.last = latest
@@ -970,6 +1047,7 @@ local function closeFlight(reason, endT)
     core.round(F.maxAlt), core.round(F.launchPeak), dur, #gains, tostring(nice), #items, reason))
 
   S.last = flight
+  accFlight(flight)
   S.dataRev = (S.dataRev or 0) + 1
   if nice then
     table.insert(S.history, 1, flight)
@@ -1174,73 +1252,53 @@ core.FAMILIES = FAMILIES
 
 -- ---------------------------------------------------------------- stats
 
--- All-time numbers per plane for the Stats screen, read straight from
--- flights.csv and badges.csv: throws, nice %, average launch, average air
--- time, thermal hits (see isThermal) and the average top of those flights,
--- plus one badge pill per family showing that plane's best. Altitudes come
--- back in feet; the screen converts. Cached until a flight lands or the
--- settings that shape it change.
+-- All-time numbers per plane for the Stats screen, from accumulators that
+-- loadFlights fills at boot and closeFlight extends (never a file read in a
+-- paint: Ethos caps a callback's instructions): throws, nice %, average
+-- launch, average air time, thermal hits (see isThermal) and the average
+-- top of those flights, plus one badge pill per family showing that
+-- plane's best. Altitudes come back in feet; the screen converts.
 local function statsBadgeLabel(it)
   if it.fam == "rech" then return string.format("Record %d %s", it.exact, core.unit()) end
   if it.fam == "rect" then return "Record " .. core.fmtTime(it.exact) end
   return core.badgeLabel(it)
 end
 
-local function planeBadges()
-  local per = {}                    -- model -> { n = rows, fams = { fam -> best item } }
-  for _, r in ipairs(readRows("badges")) do
-    if r[1] == S.cfg.units then
-      local fam, kind, model = r[2], r[3], r[7] or ""
-      local val, exact = tonumber(r[4]) or 0, tonumber(r[5]) or 0
-      local pb = per[model]
-      if not pb then pb = { n = 0, fams = {} }; per[model] = pb end
-      pb.n = pb.n + 1
-      local cur = pb.fams[fam]
-      if fam == "hat" then
-        if not cur then cur = { fam = fam, kind = kind, val = 0, exact = 0, extra = "" }; pb.fams[fam] = cur end
-        cur.val = cur.val + 1; cur.exact = cur.val
-      else
-        local better
-        if not cur then better = true
-        elseif fam == "save" then better = exact < cur.exact
-        elseif fam == "rech" or fam == "rect" then better = exact > cur.exact
-        else better = val > cur.val or (val == cur.val and exact > cur.exact) end
-        if better then pb.fams[fam] = { fam = fam, kind = kind, val = val, exact = exact, extra = r[8] or "" } end
-      end
-    end
+-- Planes' badge pills from the per-plane bests kept by applyBadgeRow.
+local function planeItems(model)
+  local pb = S.B.perModel[model]
+  if not pb then return {}, 0 end
+  local items = {}
+  for _, fam in ipairs(FAMILIES) do
+    local it = pb.fams[fam]
+    if it then it.label = statsBadgeLabel(it); items[#items + 1] = it end
   end
-  for _, pb in pairs(per) do
-    pb.items = {}
-    for _, fam in ipairs(FAMILIES) do
-      local it = pb.fams[fam]
-      if it then it.label = statsBadgeLabel(it); pb.items[#pb.items + 1] = it end
-    end
-  end
-  return per
+  return items, pb.n
 end
 
 function core.stats()
-  local key = tostring(S.dataRev or 0) .. "/" .. tostring(S.cfg.units) .. "/" .. tostring(S.cfg.climb)
+  local climb = (S.cfg and S.cfg.climb) or L().climb
+  local key = tostring(S.dataRev or 0) .. "/" .. tostring(S.cfg.units) .. "/" .. tostring(climb)
   if S.statsCache and S.statsCache.key == key then return S.statsCache end
-  local acc, order = {}, {}
-  local function bucket(model)
-    local b = acc[model]
-    if not b then
-      b = { model = model, throws = 0, nice = 0, launchSum = 0, durSum = 0, thermals = 0, topSum = 0 }
-      acc[model] = b; order[#order + 1] = b
+  local A = S.acc
+  if A.climb ~= climb then
+    -- the climb size moved: recount thermal hits from the kept pairs
+    for _, b in ipairs(A.order) do b.thermals, b.topSum = 0, 0 end
+    for i = 1, #A.model do
+      if isThermal(A.launch[i], A.max[i]) then
+        local b = A.planes[A.model[i]]
+        b.thermals, b.topSum = b.thermals + 1, b.topSum + A.max[i]
+      end
     end
-    return b
-  end
-  local function add(b, f)
-    b.throws = b.throws + 1
-    if f.nice then b.nice = b.nice + 1 end
-    b.launchSum, b.durSum = b.launchSum + f.launch, b.durSum + f.dur
-    if isThermal(f.launch, f.max) then b.thermals = b.thermals + 1; b.topSum = b.topSum + f.max end
+    A.climb = climb
   end
   local all = { model = "All planes", throws = 0, nice = 0, launchSum = 0, durSum = 0, thermals = 0, topSum = 0 }
-  for _, r in ipairs(readRows("flights")) do
-    local f = flightFromRow(r)
-    add(bucket(f.model), f); add(all, f)
+  local order = {}
+  for i, b in ipairs(A.order) do
+    order[i] = b
+    all.throws, all.nice = all.throws + b.throws, all.nice + b.nice
+    all.launchSum, all.durSum = all.launchSum + b.launchSum, all.durSum + b.durSum
+    all.thermals, all.topSum = all.thermals + b.thermals, all.topSum + b.topSum
   end
   local function finish(b)
     local n = b.throws
@@ -1253,12 +1311,10 @@ function core.stats()
     return b
   end
   table.sort(order, function(a, b) if a.throws ~= b.throws then return a.throws > b.throws end return a.model < b.model end)
-  local per = planeBadges()
   local nBadges = 0
   for _, b in ipairs(order) do
     finish(b)
-    local pb = per[b.model]
-    b.badges, b.nBadges = (pb and pb.items) or {}, (pb and pb.n) or 0
+    b.badges, b.nBadges = planeItems(b.model)
     nBadges = nBadges + b.nBadges
   end
   finish(all)

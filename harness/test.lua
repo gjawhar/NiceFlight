@@ -595,6 +595,32 @@ end
 
 -- ---------------------------------------------------------------- nice-flight alert
 
+-- Ethos aborts a callback past its instruction budget ("Max instructions
+-- count reached"; about 20k VM instructions per callback on a pilot's X20).
+-- Count what each screen costs with the sample data loaded; the mock lcd
+-- functions are Lua too, so these numbers run high compared to the radio.
+print("\n-- paint cost per screen (VM instructions, sample data)")
+do
+  core.seedDemo(); tick()
+  local function cost(label, limit, fn)
+    local n = 0
+    debug.sethook(function() n = n + 1 end, "", 50)
+    fn()
+    debug.sethook()
+    check(n * 50 < limit, string.format("%s under %dk (%d)", label, limit / 1000, n * 50))
+  end
+  app.V.histFlight = core.history()[2]; app.V.screen = "histrecap"
+  cost("recap, first paint", 45000, function() paint() end)
+  cost("recap, repaint (graph cached)", 30000, function() paint() end)
+  app.V.screen = "stats"; app.V.statsView = "flying"; cost("stats flying", 15000, function() paint() end)
+  app.V.statsView = "badges"; cost("stats badges", 15000, function() paint() end)
+  app.V.screen = "badges"; cost("badges", 30000, function() paint() end)
+  app.V.screen = "history"; cost("history", 15000, function() paint() end)
+  app.V.screen = "auto"; cost("idle", 25000, function() paint() end)
+  cost("wakeup, idle", 3000, function() core.wakeup() end)
+  core.erase(); core.dismissRecap()
+end
+
 print("\n-- in-flight nice-flight alert: its own sound, once, distinct from a badge")
 core.erase(); core.dismissRecap()
 do
@@ -702,11 +728,30 @@ check(wdg.app.V.screen == "auto", "BACK leaves Stats")
 do
   local resets = 0
   lcd.resetFocusTimeout = function() resets = resets + 1 end
-  wdg.app.open("stats"); reg.wakeup(wdg); reg.wakeup(wdg)
-  check(resets == 2, "focus kept alive every wakeup while a scrolling screen shows")
-  wdg.app.pressKey(1); reg.wakeup(wdg)
+  wdg.app.open("stats"); reg.wakeup(wdg); reg.wakeup(wdg); reg.wakeup(wdg)
+  check(resets == 1, "focus kept alive on a scrolling screen, once per 5 s not every wakeup (" .. resets .. ")")
+  tOff = tOff + 5; reg.wakeup(wdg)
+  check(resets == 2, "held again after 5 s")
+  wdg.app.pressKey(1); tOff = tOff + 5; reg.wakeup(wdg)
   check(resets == 2, "not on the idle screen")
   lcd.resetFocusTimeout = function() end
+end
+
+-- wakeup-rate and key-hold diagnostics (chasing the half-second FS hold)
+do
+  local before = #core.readRows("diag")
+  SIM.fs[2] = -100; tick(); core.pollFS()                       -- sources resolved, key seen low
+  SIM.fs[2] = 100; core.pollFS(); core.pollFS(); core.pollFS(); SIM.fs[2] = -100; core.pollFS()
+  local rows = core.readRows("diag")
+  local fsRow
+  for i = before + 1, #rows do if rows[i][3] == "fs" then fsRow = rows[i][4] end end
+  check(fsRow == "FS2 held 3 wakeups", "FS hold logged in wakeups (" .. tostring(fsRow) .. ")")
+  before = #rows
+  for _ = 1, 70 do tOff = tOff + 1; for _ = 1, 4 do reg.wakeup(wdg) end end
+  rows = core.readRows("diag")
+  local found
+  for i = before + 1, #rows do if rows[i][3] == "timing" then found = rows[i][4] end end
+  check(found and found:find("avg=4 max=", 1, true) ~= nil and found:find("over %d+s") ~= nil, "wakeup rate logged once a minute (" .. tostring(found) .. ")")
 end
 formFields = {}
 menu0[2][2]()                                  -- the long-press menu's settings entry

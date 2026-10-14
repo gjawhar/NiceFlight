@@ -40,11 +40,17 @@ local SIZES = {
   small = { "FONT_S" },
   tiny  = { "FONT_XS", "FONT_S" },
 }
+-- Resolved once per size name: draw.font runs for every piece of text on a
+-- screen, and the rawget + pcall walk was a measurable slice of a paint's
+-- instruction budget.
+local fontOf = {}
 function draw.font(size)
+  local f = fontOf[size]
+  if f ~= nil then lcd.font(f) return end
   local list = SIZES[size] or SIZES.small
   for i = 1, #list do
-    local f = fontByName(list[i])
-    if f ~= nil and pcall(lcd.font, f) then return end
+    f = fontByName(list[i])
+    if f ~= nil and pcall(lcd.font, f) then fontOf[size] = f return end
   end
   pcall(lcd.font, FONT_S)
 end
@@ -336,6 +342,14 @@ end
 -- (Catmull-Rom) trace with a light fill; highs get a green value pill, lows
 -- a red one. Costs a few hundred short lines, so the caller only repaints
 -- when something changed.
+local graphCache = nil
+local BASIS = {}
+for s = 0, 5 do
+  local t = s / 6
+  local t2, t3 = t * t, t * t * t
+  BASIS[#BASIS + 1] = { 0.5 * (-t + 2 * t2 - t3), 0.5 * (2 - 5 * t2 + 3 * t3),
+                        0.5 * (t + 4 * t2 - 3 * t3), 0.5 * (-t2 + t3) }
+end
 function draw.graph(x, y, w, h, points, p)
   if #points < 2 then return end
   draw.font("tiny")
@@ -358,45 +372,60 @@ function draw.graph(x, y, w, h, points, p)
   draw.textAt(gx, gy + gh + 3, "0:00")
   draw.textRight(gx + gw, gy + gh + 3, core.fmtTime(points[#points].t))
 
-  -- sample the curve
+  -- The curve and the fill columns are geometry, not drawing: worked out
+  -- once per flight and box, then replayed. Ethos caps a callback's Lua
+  -- instructions and the recap repaints every second; this was most of
+  -- its cost (6 points x 10 steps, a fill column every 2 px, all redone).
   local px = {}
   for i = 1, #points do px[i] = { X(points[i].t), Y(points[i].a) } end
-  local curve = {}
-  local STEPS = 10
-  for i = 1, #px - 1 do
-    local p0, p1, p2, p3 = px[i - 1] or px[i], px[i], px[i + 1], px[i + 2] or px[i + 1]
-    for s = 0, STEPS - 1 do
-      local t = s / STEPS
-      local t2, t3 = t * t, t * t * t
-      local cx = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3)
-      local cy = 0.5 * ((2 * p1[2]) + (-p0[2] + p2[2]) * t + (2 * p0[2] - 5 * p1[2] + 4 * p2[2] - p3[2]) * t2 + (-p0[2] + 3 * p1[2] - 3 * p2[2] + p3[2]) * t3)
-      if cy > gy + gh then cy = gy + gh end
-      if cy < gy then cy = gy end
-      curve[#curve + 1] = { cx, cy }
+  local key = table.concat({ gx, gy, gw, gh, #points, points[#points].t, maxA }, "/")
+  for i = 1, #points do key = key .. "/" .. points[i].t .. ":" .. points[i].a end
+  local G = graphCache
+  if not G or G.key ~= key then
+    local curve = {}
+    -- Catmull-Rom with the basis weights worked out once per step
+    for i = 1, #px - 1 do
+      local p0, p1, p2, p3 = px[i - 1] or px[i], px[i], px[i + 1], px[i + 2] or px[i + 1]
+      local x0, x1, x2, x3 = p0[1], p1[1], p2[1], p3[1]
+      local y0, y1, y2, y3 = p0[2], p1[2], p2[2], p3[2]
+      for s = 1, #BASIS do
+        local b = BASIS[s]
+        local cx = b[1] * x0 + b[2] * x1 + b[3] * x2 + b[4] * x3
+        local cy = b[1] * y0 + b[2] * y1 + b[3] * y2 + b[4] * y3
+        if cy > gy + gh then cy = gy + gh end
+        if cy < gy then cy = gy end
+        curve[#curve + 1] = { math.floor(cx), math.floor(cy) }
+      end
     end
+    curve[#curve + 1] = { math.floor(px[#px][1]), math.floor(px[#px][2]) }
+    -- fill columns: a 3 px strip every 3 px, top y per strip
+    local cols, ci = {}, 1
+    local floor = gy + gh - 1
+    for col = math.floor(gx) + 1, math.floor(gx + gw) - 3, 3 do
+      while ci < #curve - 1 and curve[ci + 1][1] < col do ci = ci + 1 end
+      local a, b = curve[ci], curve[ci + 1]
+      local yy = a[2]
+      if b[1] > a[1] then yy = a[2] + (b[2] - a[2]) * (col - a[1]) / (b[1] - a[1]) end
+      yy = math.floor(yy)
+      if yy < floor then cols[#cols + 1] = { col, yy, floor - yy } end
+    end
+    G = { key = key, curve = curve, cols = cols }
+    graphCache = G
   end
-  curve[#curve + 1] = { px[#px][1], px[#px][2] }
 
-  -- fill: one vertical line every other column is enough at this size
   lcd.color(p.fill)
-  local ci = 1
-  for col = math.floor(gx) + 1, math.floor(gx + gw) - 1, 2 do
-    while ci < #curve - 1 and curve[ci + 1][1] < col do ci = ci + 1 end
-    local a, b = curve[ci], curve[ci + 1]
-    local yy = a[2]
-    if b[1] > a[1] then yy = a[2] + (b[2] - a[2]) * (col - a[1]) / (b[1] - a[1]) end
-    if yy < gy + gh - 1 then
-      lcd.drawLine(col, math.floor(yy), col, gy + gh - 1)
-      lcd.drawLine(col + 1, math.floor(yy), col + 1, gy + gh - 1)
-    end
+  for i = 1, #G.cols do
+    local c = G.cols[i]
+    lcd.drawFilledRectangle(c[1], c[2], 3, c[3])
   end
 
   -- trace, drawn twice for weight
   lcd.color(p.text)
+  local curve = G.curve
   for i = 1, #curve - 1 do
     local a, b = curve[i], curve[i + 1]
-    lcd.drawLine(math.floor(a[1]), math.floor(a[2]), math.floor(b[1]), math.floor(b[2]))
-    lcd.drawLine(math.floor(a[1]), math.floor(a[2]) + 1, math.floor(b[1]), math.floor(b[2]) + 1)
+    lcd.drawLine(a[1], a[2], b[1], b[2])
+    lcd.drawLine(a[1], a[2] + 1, b[1], b[2] + 1)
   end
 
   -- value pills on the interior points: highs above in green, lows below in red

@@ -128,3 +128,18 @@ the moment the widget is added, which looked like the app launching on CFG
 `lcd.loadBitmap` / `lcd.drawBitmap` with PNG alpha (falls back to a lettered
 square), `FONT_XXL` / `FONT_STD` availability (falls back down the list),
 `system.playTone` from a widget, and the whole thing on a real X14.
+
+## Ethos caps a callback's Lua instructions (1.1.1, 2026-10-14)
+
+Ethos aborts any single callback (paint, wakeup, create...) that runs past
+an instruction budget: "Max instructions count reached" (since Ethos 1.5.3;
+Rotorflight measured ~20k VM instructions per callback, a pilot's X20 on
+1.6 died in Throw Trainer's paint at ~36k, the X14 on 26.1.2 has painted
+~60k without complaint -- the exact figure per firmware is unknown; the
+InstrProbe widget in the session scratchpad measures it). Rules here:
+never read a file or walk the whole flight log in a paint (Stats comes from
+accumulators filled in loadFlights / closeFlight, badges per plane from
+applyBadgeRow); the recap graph caches its geometry per flight and box;
+draw.font caches the resolved font. harness/test.lua counts instructions
+per screen with debug.sethook (limits are harness counts, which include the
+Lua lcd mocks); measure any new screen the same way before it ships.

@@ -610,8 +610,12 @@ do
     check(n * 50 < limit, string.format("%s under %dk (%d)", label, limit / 1000, n * 50))
   end
   app.V.histFlight = core.history()[2]; app.V.screen = "histrecap"
-  cost("recap, first paint", 45000, function() paint() end)
-  cost("recap, repaint (graph cached)", 30000, function() paint() end)
+  cost("recap, first paint (straight segments, asks wakeup for the curve)", 25000, function() paint() end)
+  check(draw.graphPending(), "first recap paint left the curve for wakeup")
+  cost("graph geometry in wakeup (uncapped there)", 60000, function() check(draw.graphPrepare(), "wakeup prepared the curve") end)
+  check(not draw.graphPending(), "nothing pending after prepare")
+  cost("recap, repaint (curve ready)", 30000, function() paint() end)
+  cost("recap, third paint", 30000, function() paint() end)
   app.V.screen = "stats"; app.V.statsView = "flying"; cost("stats flying", 15000, function() paint() end)
   app.V.statsView = "badges"; cost("stats badges", 15000, function() paint() end)
   app.V.screen = "badges"; cost("badges", 30000, function() paint() end)

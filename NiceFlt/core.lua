@@ -9,7 +9,7 @@
 -- is CPU time (useless); pcall every Ethos call that can be missing.
 
 local core = {}
-core.VERSION = "1.1.1"
+core.VERSION = "1.1.2"
 
 local FT_PER_M = 3.28084
 

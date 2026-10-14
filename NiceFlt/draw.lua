@@ -342,7 +342,7 @@ end
 -- (Catmull-Rom) trace with a light fill; highs get a green value pill, lows
 -- a red one. Costs a few hundred short lines, so the caller only repaints
 -- when something changed.
-local graphCache = nil
+local graphCache, graphPending = nil, nil
 local BASIS = {}
 for s = 0, 5 do
   local t = s / 6
@@ -350,6 +350,45 @@ for s = 0, 5 do
   BASIS[#BASIS + 1] = { 0.5 * (-t + 2 * t2 - t3), 0.5 * (2 - 5 * t2 + 3 * t3),
                         0.5 * (t + 4 * t2 - 3 * t3), 0.5 * (-t2 + t3) }
 end
+-- Builds the smooth curve and fill strips a paint asked for. Runs from
+-- wakeup (unbounded budget). Returns true when something was prepared.
+function draw.graphPrepare()
+  local R = graphPending
+  if not R then return false end
+  graphPending = nil
+  local px, gy, gh, gx, gw = R.px, R.gy, R.gh, R.gx, R.gw
+  local curve = {}
+  -- Catmull-Rom with the basis weights worked out once per step
+  for i = 1, #px - 1 do
+    local p0, p1, p2, p3 = px[i - 1] or px[i], px[i], px[i + 1], px[i + 2] or px[i + 1]
+    local x0, x1, x2, x3 = p0[1], p1[1], p2[1], p3[1]
+    local y0, y1, y2, y3 = p0[2], p1[2], p2[2], p3[2]
+    for s = 1, #BASIS do
+      local b = BASIS[s]
+      local cx = b[1] * x0 + b[2] * x1 + b[3] * x2 + b[4] * x3
+      local cy = b[1] * y0 + b[2] * y1 + b[3] * y2 + b[4] * y3
+      if cy > gy + gh then cy = gy + gh end
+      if cy < gy then cy = gy end
+      curve[#curve + 1] = { math.floor(cx), math.floor(cy) }
+    end
+  end
+  curve[#curve + 1] = { px[#px][1], px[#px][2] }
+  -- fill columns: a 3 px strip every 3 px, top y per strip
+  local cols, ci = {}, 1
+  local floor = gy + gh - 1
+  for col = math.floor(gx) + 1, math.floor(gx + gw) - 3, 3 do
+    while ci < #curve - 1 and curve[ci + 1][1] < col do ci = ci + 1 end
+    local a, b = curve[ci], curve[ci + 1]
+    local yy = a[2]
+    if b[1] > a[1] then yy = a[2] + (b[2] - a[2]) * (col - a[1]) / (b[1] - a[1]) end
+    yy = math.floor(yy)
+    if yy < floor then cols[#cols + 1] = { col, yy, floor - yy } end
+  end
+  graphCache = { key = R.key, curve = curve, cols = cols }
+  return true
+end
+function draw.graphPending() return graphPending ~= nil end
+
 function draw.graph(x, y, w, h, points, p)
   if #points < 2 then return end
   draw.font("tiny")
@@ -372,60 +411,38 @@ function draw.graph(x, y, w, h, points, p)
   draw.textAt(gx, gy + gh + 3, "0:00")
   draw.textRight(gx + gw, gy + gh + 3, core.fmtTime(points[#points].t))
 
-  -- The curve and the fill columns are geometry, not drawing: worked out
-  -- once per flight and box, then replayed. Ethos caps a callback's Lua
-  -- instructions and the recap repaints every second; this was most of
-  -- its cost (6 points x 10 steps, a fill column every 2 px, all redone).
+  -- The curve and the fill columns are geometry, not drawing. Ethos caps
+  -- a PAINT's Lua instructions (about 35k on 26.1, likely 20k on 1.6) but
+  -- not a wakeup's, so the geometry is worked out in draw.graphPrepare,
+  -- called from wakeup, and only replayed here. A paint that finds no
+  -- geometry yet draws straight segments and asks for one: the smooth
+  -- curve follows a wakeup later (~20 ms), well before the eye minds.
   local px = {}
-  for i = 1, #points do px[i] = { X(points[i].t), Y(points[i].a) } end
+  for i = 1, #points do px[i] = { math.floor(X(points[i].t)), math.floor(Y(points[i].a)) } end
   local key = table.concat({ gx, gy, gw, gh, #points, points[#points].t, maxA }, "/")
   for i = 1, #points do key = key .. "/" .. points[i].t .. ":" .. points[i].a end
   local G = graphCache
   if not G or G.key ~= key then
-    local curve = {}
-    -- Catmull-Rom with the basis weights worked out once per step
+    graphPending = { key = key, px = px, gy = gy, gh = gh, gx = gx, gw = gw }
+    lcd.color(p.text)
     for i = 1, #px - 1 do
-      local p0, p1, p2, p3 = px[i - 1] or px[i], px[i], px[i + 1], px[i + 2] or px[i + 1]
-      local x0, x1, x2, x3 = p0[1], p1[1], p2[1], p3[1]
-      local y0, y1, y2, y3 = p0[2], p1[2], p2[2], p3[2]
-      for s = 1, #BASIS do
-        local b = BASIS[s]
-        local cx = b[1] * x0 + b[2] * x1 + b[3] * x2 + b[4] * x3
-        local cy = b[1] * y0 + b[2] * y1 + b[3] * y2 + b[4] * y3
-        if cy > gy + gh then cy = gy + gh end
-        if cy < gy then cy = gy end
-        curve[#curve + 1] = { math.floor(cx), math.floor(cy) }
-      end
+      lcd.drawLine(px[i][1], px[i][2], px[i + 1][1], px[i + 1][2])
     end
-    curve[#curve + 1] = { math.floor(px[#px][1]), math.floor(px[#px][2]) }
-    -- fill columns: a 3 px strip every 3 px, top y per strip
-    local cols, ci = {}, 1
-    local floor = gy + gh - 1
-    for col = math.floor(gx) + 1, math.floor(gx + gw) - 3, 3 do
-      while ci < #curve - 1 and curve[ci + 1][1] < col do ci = ci + 1 end
-      local a, b = curve[ci], curve[ci + 1]
-      local yy = a[2]
-      if b[1] > a[1] then yy = a[2] + (b[2] - a[2]) * (col - a[1]) / (b[1] - a[1]) end
-      yy = math.floor(yy)
-      if yy < floor then cols[#cols + 1] = { col, yy, floor - yy } end
+    if lcd.invalidate then lcd.invalidate() end
+  else
+    lcd.color(p.fill)
+    for i = 1, #G.cols do
+      local c = G.cols[i]
+      lcd.drawFilledRectangle(c[1], c[2], 3, c[3])
     end
-    G = { key = key, curve = curve, cols = cols }
-    graphCache = G
-  end
-
-  lcd.color(p.fill)
-  for i = 1, #G.cols do
-    local c = G.cols[i]
-    lcd.drawFilledRectangle(c[1], c[2], 3, c[3])
-  end
-
-  -- trace, drawn twice for weight
-  lcd.color(p.text)
-  local curve = G.curve
-  for i = 1, #curve - 1 do
-    local a, b = curve[i], curve[i + 1]
-    lcd.drawLine(a[1], a[2], b[1], b[2])
-    lcd.drawLine(a[1], a[2] + 1, b[1], b[2] + 1)
+    -- trace, drawn twice for weight
+    lcd.color(p.text)
+    local curve = G.curve
+    for i = 1, #curve - 1 do
+      local a, b = curve[i], curve[i + 1]
+      lcd.drawLine(a[1], a[2], b[1], b[2])
+      lcd.drawLine(a[1], a[2] + 1, b[1], b[2] + 1)
+    end
   end
 
   -- value pills on the interior points: highs above in green, lows below in red

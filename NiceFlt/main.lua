@@ -24,6 +24,12 @@ local function widgetPaint(widget)
     lcd.color(lcd.RGB(240, 90, 70))
     lcd.drawText(4, 4, "Nice Flight! error (paint):")
     lcd.drawText(4, 22, tostring(err))
+    -- once per distinct message, so a radio's diag.csv tells the story
+    -- ("Max instructions count reached" never showed in a friend's log)
+    if widget and widget.lastPaintErr ~= tostring(err) then
+      widget.lastPaintErr = tostring(err)
+      pcall(core.diag, "painterr", tostring(err))
+    end
   end
 end
 
@@ -43,6 +49,10 @@ local function widgetWakeup(widget)
     if not ok3 then core.setStatus("FS error: " .. tostring(err3)) end
   end
   pcall(core.timing)
+  -- geometry a paint asked for (the recap graph): built here, where Ethos
+  -- does not cap the instruction count, then shown on the next paint
+  local okG, prepared = pcall(draw.graphPrepare)
+  if okG and prepared then lcd.invalidate() end
 
   if widget and widget.app then
     -- Reading a list is idle time to Ethos, which drops focus after ten

@@ -75,6 +75,7 @@ local function sec(n) for _ = 1, (n or 1) do tOff = tOff + 1; core.wakeup() end 
 local function shot(name)
   ops = {}
   app.paint(CW, CH)
+  if draw.graphPending() then draw.graphPrepare(); ops = {}; app.paint(CW, CH) end     -- as the radio: wakeup builds the curve
   local f = io.open("out_" .. name .. ".svg", "w")
   f:write(string.format('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" font-family="Helvetica,Arial,sans-serif">\n', CW, CH, CW, CH))
   f:write(table.concat(ops, "\n")); f:write("\n</svg>\n"); f:close()

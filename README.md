@@ -66,7 +66,8 @@ set to m, every ladder switches to a round metric ladder.
 
 - FrSky Ethos 1.6 or 26.1 (developed on an X14 with 26.1.2; also loads and
   runs on Ethos 1.6, checked in the 1.6.8 simulator. X20-class radios get the
-  same layout, with tap on the key labels).
+  same layout, with tap on the key labels; the Twin X Lite's 480x320 screen
+  is supported too).
 - Mike Shellim's **DLG for Ethos** template, or a model whose flight modes
   match it: Launch = 2, Zoom = 3, Landing = 4, with the launch button
   resetting the Altitude sensor.

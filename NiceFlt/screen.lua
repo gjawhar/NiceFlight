@@ -284,10 +284,13 @@ function screen.new(opts)
     if t.throws > 0 then
       local th = string.format("%d thermal%s", t.thermals, t.thermals == 1 and "" or "s")
       local la, ai = core.fmtAlt(t.launchSum / t.throws) .. " " .. u, core.fmtTime(core.round(t.durSum / t.throws))
-      local long = string.format("avg launch %s - %s - air %s", la, th, ai)
       draw.font("std")
       local room = w - x1 * 2 - lcd.getTextSize("Today") - 6
-      if lcd.getTextSize(long) > room then long = string.format("launch %s - %s - air %s", la, th, ai) end
+      local long
+      for _, form in ipairs({ "avg launch %s - %s - air %s", "launch %s - %s - air %s", "%s - %s - %s" }) do
+        long = string.format(form, la, th, ai)
+        if lcd.getTextSize(long) <= room then break end
+      end
       line(y + lineH, "Today", long)
     else
       line(y + lineH, "Today", "no throws yet")
@@ -556,8 +559,12 @@ function screen.new(opts)
     local y = top + 2
     -- plane name left; six numeric columns right-aligned at these fractions.
     -- Headers stay short: the tiny font still needs about 9 px per letter.
+    -- Under 560 px (Twin X Lite, 480) the rows drop to the tiny font too and
+    -- the name column gives up a little, or "75%" ran into "169 ft".
+    local narrow = w < 560
+    local rowFont = narrow and "tiny" or "small"
     local heads = { "Plane", "Throws", "Nice", "Launch", "Air", "Thermal", "Top" }
-    local rights = { 0, 0.33, 0.44, 0.58, 0.70, 0.84, 1.0 }
+    local rights = narrow and { 0, 0.30, 0.42, 0.57, 0.70, 0.85, 1.0 } or { 0, 0.33, 0.44, 0.58, 0.70, 0.84, 1.0 }
     local function rx(i) return x1 + math.floor((w - x1 * 2) * rights[i]) end
     draw.font("tiny"); lcd.color(p.dim)
     draw.textAt(x1, y, string.upper(heads[1]))
@@ -565,9 +572,9 @@ function screen.new(opts)
     local _, hh = lcd.getTextSize("8")
     y = y + hh + 2
     lcd.color(p.line); lcd.drawLine(x1, y, w - x1, y)
-    local rowH = m.th + 6
+    local rowH = (narrow and fontH("tiny") or m.th) + 6
     local planes = st.planes
-    local note = string.format("thermal = %d %s+ above launch", core.S.cfg.climb, u)
+    local note = string.format(narrow and "thermal = +%d %s" or "thermal = %d %s+ above launch", core.S.cfg.climb, u)
     if #planes == 0 then
       draw.font("small"); lcd.color(p.dim)
       draw.textAt(x1, y + 8, "No flights yet.")
@@ -582,8 +589,9 @@ function screen.new(opts)
     V.statsFit = fit
     if V.statsTop > math.max(1, #planes - fit + 1) then V.statsTop = math.max(1, #planes - fit + 1) end
     local function row(ry, b, color)
-      draw.font("small"); lcd.color(color)
-      draw.textAt(x1, ry + 3, b.model, rx(2) - x1 - lcd.getTextSize("8888") - 6)
+      draw.font(rowFont); lcd.color(color)
+      local name = (narrow and b.model == "All planes") and "All" or b.model
+      draw.textAt(x1, ry + 3, name, rx(2) - x1 - lcd.getTextSize("8888") - 6)
       draw.textRight(rx(2), ry + 3, tostring(b.throws))
       draw.textRight(rx(3), ry + 3, b.nicePct .. "%")
       draw.textRight(rx(4), ry + 3, b.avgLaunch and (core.fmtAlt(b.avgLaunch) .. " " .. u) or "--")

@@ -538,6 +538,21 @@ check(core.recordHeight() == 450, "switching back to ft restores the ft badges")
 
 -- ---------------------------------------------------------------- 800x480
 
+print("\n-- Twin X Lite canvas (480x320)")
+CW, CH = 480, 320
+core.seedDemo(); tick(); boundsCheck("idle 480x320")
+check(app.fits(480, 320), "480x320 is accepted")
+app.pressKey(2); paint(); boundsCheck("history 480x320")
+app.event(KEY_ENTER_BREAK, nil, nil, EVT_KEY); paint(); boundsCheck("recap 480x320")
+check(sawText("BADGES EARNED ON THIS FLIGHT"), "recap drawn at 480x320")
+app.event(KEY_RTN_FIRST, nil, nil, EVT_KEY); app.event(KEY_RTN_FIRST, nil, nil, EVT_KEY)
+app.pressKey(3); paint(); boundsCheck("badges 480x320")
+app.event(KEY_RTN_FIRST, nil, nil, EVT_KEY)
+app.pressKey(1); paint(); boundsCheck("stats flying 480x320")
+app.pressKey(3); paint(); boundsCheck("stats badges 480x320")
+app.event(KEY_RTN_FIRST, nil, nil, EVT_KEY)
+core.erase(); core.dismissRecap()
+
 print("\n-- X20 canvas")
 CW, CH = 800, 480
 core.seedDemo(); tick(); boundsCheck("idle 800x480")

@@ -93,6 +93,7 @@ form = {
   addSourceField = function(line, r, get, set) return field(get, set) end,
   addStaticText = function() return {} end,
   addButton = function(line, r, b) formFields[#formFields + 1] = { press = b.press } return {} end,
+  addTextButton = function(line, r, text, fn) assert(type(text) == "string" and type(fn) == "function", "addTextButton args"); formFields[#formFields + 1] = { press = fn } return {} end,
 }
 
 -- ---------------------------------------------------------------- require chain (as main.lua)

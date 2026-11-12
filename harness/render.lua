@@ -60,7 +60,7 @@ lcd = {
     ops[#ops + 1] = string.format('<image x="%d" y="%d" width="%d" height="%d" href="../../NiceFlt/%s"/>', x, y, w, h, bmp.path)
   end,
 }
-form = { openDialog = function() end, clear = function() end }
+form = { openDialog = function() end, clear = function() end, addTextButton = function() return {} end }
 
 local core   = assert(loadfile("core.lua"))()
 local draw   = assert(loadfile("draw.lua"))(core)

@@ -80,16 +80,22 @@ function config.build(onErase)
   line = panel:addLine("Erase all flights and badges")
   form.addButton(line, nil, { text = "Erase...", press = function() if onErase then onErase() end end })
 
-  panel = form.addExpansionPanel("About")
+  -- About: the version sits in the panel title so it reads without opening
+  -- the panel, and the rows are text BUTTONS (press does nothing) rather
+  -- than static text. Static text cannot take focus, and an Ethos form only
+  -- scrolls to follow focus, so on a radio whose screen is too short for
+  -- the whole form the opened panel's rows sat below the edge and nothing
+  -- could reach them (pilot, Twin X Lite, 2026-11-11).
+  panel = form.addExpansionPanel("About - Nice Flight! " .. core.VERSION)
   panel:open(false)
-  line = panel:addLine("Version")
-  form.addStaticText(line, nil, "Nice Flight! " .. core.VERSION)
-  line = panel:addLine("Model")
-  form.addStaticText(line, nil, core.S.model)
-  line = panel:addLine("Altitude sensor unit")
-  form.addStaticText(line, nil, core.S.sensorUnit)
-  line = panel:addLine("Storage")
-  form.addStaticText(line, nil, core.S.dir or "unavailable")
+  local function info(label, text)
+    line = panel:addLine(label)
+    form.addTextButton(line, nil, tostring(text), function() return true end)
+  end
+  info("Version", "Nice Flight! " .. core.VERSION)
+  info("Model", core.S.model)
+  info("Altitude sensor unit", core.S.sensorUnit)
+  info("Storage", core.S.dir or "unavailable")
 end
 
 return config
